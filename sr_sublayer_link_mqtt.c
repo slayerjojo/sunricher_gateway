@@ -39,13 +39,14 @@ static void connlost(void *context, char *cause)
 
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
 {
-    SigmaLogDump(LOG_LEVEL_ACTION, message->payload, message->payloadlen, "topic:%s message:", topicName);
     
     cJSON *msg = 0;
     do {
-        SRLinkHeader *packet = sll_unpack(message->payload, message->payloadlen, _key);
+        uint8_t *packet = sll_headless_unpack(message->payload, &(message->payloadlen), _key);
+    
+        SigmaLogAction("topic:%s message:%s", topicName, (char *)packet);
 
-        msg = cJSON_Parse((const char *)(packet + 1));
+        msg = cJSON_Parse((const char *)packet);
         if (!msg)
         {
             SigmaLogError("json parse error.raw:%s", (const char *)(packet + 1));
@@ -55,12 +56,6 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *me
         if (!header)
         {
             SigmaLogError("packet header error.raw:%s", (const char *)(packet + 1));
-            break;
-        }
-        cJSON *idx = cJSON_GetObjectItem(header, "messageIndex");
-        if (!idx || (((unsigned int)idx->valueint) & 0xff) != packet->seq)
-        {
-            SigmaLogDump(LOG_LEVEL_ERROR, message->payload, message->payloadlen, "packet messageIndex not match.raw:");
             break;
         }
         cJSON_AddItemToObject(msg, "user", cJSON_CreateString(_server));
@@ -318,15 +313,16 @@ void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
 	opts.onSuccess = onSend;
 	opts.onFailure = onSendFailure;
 
-    SRLinkHeader *header = sll_pack(seq, buffer, size, key);
+    uint8_t *packet = sll_headless_pack(seq, buffer, &size, key);
 
 	MQTTAsync_message msg = MQTTAsync_message_initializer;
-	msg.payload = header;
-	msg.payloadlen = sizeof(SRLinkHeader) + network_ntohl(header->length);
+	msg.payload = packet;
+	msg.payloadlen = size;
 	msg.qos = 0;
 	msg.retained = 0;
 
     int ret = 0;
 	if ((ret = MQTTAsync_sendMessage(_client, id, &msg, &opts)) != MQTTASYNC_SUCCESS)
 		SigmaLogError("MQTTAsync_sendMessage failed.(ret:%d)", ret);
+    os_free(packet);
 }

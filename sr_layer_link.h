@@ -22,6 +22,8 @@ void sll_update(void);
 uint8_t sll_seq(void);
 SRLinkHeader *sll_pack(uint8_t seq, const void *buffer, uint32_t size, const uint8_t *key);
 SRLinkHeader *sll_unpack(uint8_t *buffer, uint32_t size, const uint8_t *key);
+uint8_t *sll_headless_pack(uint8_t seq, const void *buffer, uint32_t *size, const uint8_t *key);
+uint8_t *sll_headless_unpack(uint8_t *buffer, uint32_t *size, const uint8_t *key);
 int sll_parser(const uint8_t *buffer, uint32_t size);
 
 void sll_report(uint8_t seq, const uint8_t *buffer, uint32_t size, uint32_t flags);

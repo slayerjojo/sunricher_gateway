@@ -61,6 +61,36 @@ SRLinkHeader *sll_unpack(uint8_t *buffer, uint32_t size, const uint8_t *key)
     return packet;
 }
 
+uint8_t *sll_headless_pack(uint8_t seq, const void *buffer, uint32_t *size, const uint8_t *key)
+{
+    key = 0;//chenjing
+    uint8_t *packet = os_malloc((key ? (*size / 16 + 1) * 16 : *size) + 1);
+    if (!packet)
+    {
+        SigmaLogError("out of memory");
+        return 0;
+    }
+    if (key)
+    {
+        crypto_encrypt(packet, buffer, *size, key); 
+        *size = ((*size / 16) + 1) * 16 + 1;
+    }
+    else
+    {
+        os_memcpy(packet, buffer, *size);
+    }
+    return packet;
+}
+
+uint8_t *sll_headless_unpack(uint8_t *buffer, uint32_t *size, const uint8_t *key)
+{
+    key = 0;//chenjing
+    uint8_t *packet = buffer;
+    if (key)
+        *size = crypto_decrypt(packet, packet, *size, key);
+    return packet;
+}
+
 int sll_parser(const uint8_t *buffer, uint32_t size)
 {
     SRLinkHeader *packet = (SRLinkHeader *)buffer;
