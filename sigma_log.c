@@ -53,11 +53,11 @@ void sigma_log_println(const char *file, uint32_t line, const char *func, unsign
 
     static uint32_t seq = 0;
 
-    printf("\033[37m%02d:%02d:%02d|%d|%s:%d|\033[3%dm%s\033[37m|\033[%dmlv:%d|",
+    printf("\033[0m%02d:%02d:%02d|%d|%s:%d|\033[3%dm%s\033[0m|\033[%dmlv:%d|",
         t->tm_hour, t->tm_min, t->tm_sec, 
         seq++, 
         file, line, color_hash(func), func,
-        (!level ? 31 : 37),
+        (!level ? 31 : 0),
         level);
 
     va_list args;
@@ -68,7 +68,7 @@ void sigma_log_println(const char *file, uint32_t line, const char *func, unsign
     for (i = 0; i < size; i++)
         printf("%02x", *(((unsigned char *)buffer) + i));
 
-    printf("\033[37m\n");
+    printf("\033[0m\n");
 
     fflush(stdout);
 #endif
