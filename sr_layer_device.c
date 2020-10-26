@@ -311,11 +311,11 @@ void sld_profile_report(const char *device, const char *id)
     char *str = cJSON_PrintUnformatted(packet);
     if (id)
     {
-        sll_send(id, seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT);
+        sll_send(id, seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
     }
     else
     {
-        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT);
+        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
     }
     os_free(str);
     cJSON_Delete(packet);

@@ -122,7 +122,7 @@ void sll_report(uint8_t seq, const uint8_t *buffer, uint32_t size, uint32_t flag
     if (flags & FLAG_LINK_SEND_LANWORK)
         ssll_report(seq, buffer, size);
     if (flags & FLAG_LINK_SEND_MQTT)
-        sslm_report(seq, buffer, size);
+        sslm_report(seq, buffer, size, flags);
 }
 
 void sll_send(const char *id, uint8_t seq, const uint8_t *buffer, uint32_t size, uint32_t flags)
@@ -130,7 +130,7 @@ void sll_send(const char *id, uint8_t seq, const uint8_t *buffer, uint32_t size,
     if (flags & FLAG_LINK_SEND_LANWORK)
         ssll_send(id, seq, buffer, size);
     if (flags & FLAG_LINK_SEND_MQTT)
-        sslm_send(id, seq, buffer, size);
+        sslm_send(id, seq, buffer, size, flags);
 }
 
 int sll_client_owner(char *owner)

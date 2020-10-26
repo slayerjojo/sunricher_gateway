@@ -15,7 +15,7 @@ static void handle_console(const char *command, const char *parameters[], int co
     }
     else if (!os_strcmp(command, "mqtt_pub"))
     {
-        sslm_send(parameters[0], 0, parameters[1], os_strlen(parameters[1]));
+        sslm_send(parameters[0], 0, parameters[1], os_strlen(parameters[1]), FLAG_LINK_PACKET_EVENT);
     }
 }
 

@@ -13,7 +13,7 @@ RM = rm -rf
 CC = gcc
 
 SOURCES = $(shell find ./ -maxdepth 1 -name "*$(SRCEXTS)")
-OBJS = $(foreach x,$(SRCEXTS), $(patsubst ./%$(x),$(OBJDIR)%.o,$(filter %$(x),$(SOURCES))))
+OBJS = $(foreach x,$(SRCEXTS), $(patsubst ./%$(x),$(OBJDIR)/%.o,$(filter %$(x),$(SOURCES))))
 OBJDIRS	= $(sort $(dir $(OBJS)))
 
 .PHONY : all clean docs

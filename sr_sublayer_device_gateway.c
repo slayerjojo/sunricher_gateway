@@ -1,5 +1,6 @@
 #include "sr_sublayer_device_gateway.h"
 #include "sr_layer_device.h"
+#include "sr_sublayer_link_mqtt.h"
 #include "sr_opcode.h"
 #include "interface_os.h"
 #include "interface_kv.h"
@@ -60,7 +61,7 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
 
 void ssdg_init(void)
 {
-    const char *gateway = kv_acquire("gateway", 0);
+    char *gateway = kv_acquire("gateway", 0);
     if (!gateway)
     {
         char id[33] = {0};
@@ -80,6 +81,8 @@ void ssdg_init(void)
         cJSON_Delete(attrs);
         cJSON_Delete(capabilities);
     }
+    sslm_start(gateway);
+    os_free(gateway);
 
     sigma_event_listen(EVENT_TYPE_PACKET, handle_gateway_discover, 0);
 }

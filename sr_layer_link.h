@@ -6,6 +6,8 @@
 #define FLAG_LINK_SEND_LANWORK (1 << 0)
 #define FLAG_LINK_SEND_BROADCAST (1 << 1)
 #define FLAG_LINK_SEND_MQTT (1 << 2)
+#define FLAG_LINK_PACKET_EVENT (1 << 3)
+#define FLAG_LINK_PACKET_DIRECTIVE (1 << 4)
 
 typedef struct
 {

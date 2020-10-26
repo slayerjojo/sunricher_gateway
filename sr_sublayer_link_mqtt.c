@@ -118,6 +118,9 @@ static int mission_mqtt_subscribe(SigmaMission *mission)
         ctx->state = 1;
         ctx->timer = os_ticks();
 
+        char topic[128] = {0};
+        sprintf(topic, "gateway/%s/%s/directive", _client_id, ctx->list + ctx->pos);
+
         int ret = 0;
         if ((ret = MQTTAsync_subscribe(_client, ctx->list + ctx->pos, 0, &opts)) != MQTTASYNC_SUCCESS)
         {
@@ -197,8 +200,6 @@ void sslm_init(void)
     {
         sll_client_add_direct(_server, _key);
     }
-
-    sslm_start("chenjing");
 }
 
 void sslm_update(void)
@@ -262,7 +263,7 @@ void sslm_start(const char *id)
     _state = STATE_SSLM_INIT;
 }
 
-void sslm_report(uint8_t seq, const void *buffer, uint32_t size)
+void sslm_report(uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
     if (STATE_SSLM_CONNECTED != _state)
         return;
@@ -273,7 +274,7 @@ void sslm_report(uint8_t seq, const void *buffer, uint32_t size)
     uint32_t pos = 0;
     while (pos < length)
     {
-        sslm_send(clients + pos, seq, buffer, size);
+        sslm_send(clients + pos, seq, buffer, size, flags);
 
         pos += os_strlen(clients + pos) + 1;
     }
@@ -298,7 +299,7 @@ void onSend(void* context, MQTTAsync_successData* response)
     SigmaLogAction("send successed.(token:%d)", response->token);
 }
 
-void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
+void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
     SigmaLogAction("send to %s(seq:%u size:%d)", id, seq, size);
 
@@ -320,6 +321,15 @@ void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
 	msg.payloadlen = size;
 	msg.qos = 0;
 	msg.retained = 0;
+
+    char topic[128] = {0};
+    if (flags & FLAG_LINK_PACKET_EVENT)
+        sprintf(topic, "gateway/%s/%s/event", _client_id, id);
+    else if (flags & FLAG_LINK_PACKET_DIRECTIVE)
+        sprintf(topic, "gateway/%s/%s/directive", _client_id, id);
+    else
+        sprintf(topic, "gateway/%s/%s/event", _client_id, id);
+
 
     int ret = 0;
 	if ((ret = MQTTAsync_sendMessage(_client, id, &msg, &opts)) != MQTTASYNC_SUCCESS)
