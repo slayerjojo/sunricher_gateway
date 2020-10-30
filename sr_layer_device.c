@@ -20,11 +20,11 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         return;
     }
 
-    cJSON *method = cJSON_GetObjectItem(packet, "method");
+    cJSON *method = cJSON_GetObjectItem(header, "method");
     if (!method || os_strcmp(method->valuestring, "Directive"))
         return;
 
-    cJSON *ns = cJSON_GetObjectItem(packet, "namespace");
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
     if (!ns || os_strcmp(ns->valuestring, "Discovery"))
         return;
 
@@ -104,11 +104,11 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
         return;
     }
 
-    cJSON *method = cJSON_GetObjectItem(packet, "method");
+    cJSON *method = cJSON_GetObjectItem(header, "method");
     if (!method || os_strcmp(method->valuestring, "Directive"))
         return;
 
-    cJSON *ns = cJSON_GetObjectItem(packet, "namespace");
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
     if (!ns || os_strcmp(ns->valuestring, "Basic"))
         return;
 
@@ -317,6 +317,40 @@ void sld_profile_report(const char *device, const char *id)
     {
         sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
     }
+    os_free(str);
+    cJSON_Delete(packet);
+    kv_free(gateway);
+}
+
+void sld_profile_reply(void)
+{
+    char *device = 0;
+    char *gateway = 0;
+    if (!device)
+        device = gateway = kv_acquire("gateway", 0);
+    cJSON *ep = sld_load(device);
+    if (!ep)
+    {
+        SigmaLogError("device %d not found.", device);
+        if (gateway)
+            kv_free(gateway);
+        return;
+    }
+
+    uint8_t seq = sll_seq();
+    cJSON *packet = cJSON_CreateObject();
+    cJSON *header = cJSON_CreateObject();
+    cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+    cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_REPORT));
+    cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+    cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+    cJSON_AddItemToObject(packet, "header", header);
+
+    cJSON_AddItemToObject(packet, "endpoint", ep);
+
+    char *str = cJSON_PrintUnformatted(packet);
+    sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_BROADCAST);
     os_free(str);
     cJSON_Delete(packet);
     kv_free(gateway);

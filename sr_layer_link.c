@@ -121,6 +121,8 @@ void sll_report(uint8_t seq, const uint8_t *buffer, uint32_t size, uint32_t flag
 {
     if (flags & FLAG_LINK_SEND_LANWORK)
         ssll_report(seq, buffer, size);
+    if (flags & FLAG_LINK_SEND_BROADCAST)
+        ssll_bcast(seq, buffer, size);
     if (flags & FLAG_LINK_SEND_MQTT)
         sslm_report(seq, buffer, size, flags);
 }

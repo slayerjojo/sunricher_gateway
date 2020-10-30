@@ -20,11 +20,11 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
         return;
     }
 
-    cJSON *method = cJSON_GetObjectItem(packet, "method");
+    cJSON *method = cJSON_GetObjectItem(header, "method");
     if (!method || os_strcmp(method->valuestring, "Directive"))
         return;
 
-    cJSON *ns = cJSON_GetObjectItem(packet, "namespace");
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
     if (!ns || os_strcmp(ns->valuestring, "Discovery"))
         return;
 
@@ -56,6 +56,10 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
     else if (!os_strcmp(name->valuestring, OPCODE_GATEWAY_ADD_DEVICE_STOP))
     {
         SigmaLogAction("ble stop scan");
+    }
+    else if (!os_strcmp(name->valuestring, OPCODE_DISCOVER_GATEWAY))
+    {
+        sld_profile_reply();
     }
 }
 

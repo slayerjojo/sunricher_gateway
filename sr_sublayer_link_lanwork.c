@@ -56,11 +56,11 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
     if (!header)
         return;
 
-    cJSON *method = cJSON_GetObjectItem(packet, "method");
+    cJSON *method = cJSON_GetObjectItem(header, "method");
     if (!method || os_strcmp(method->valuestring, "Directive"))
         return;
 
-    cJSON *ns = cJSON_GetObjectItem(packet, "namespace");
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
     if (!ns || os_strcmp(ns->valuestring, "Discovery"))
         return;
 
@@ -136,7 +136,7 @@ void ssll_init(void)
 void ssll_update(void)
 {
     int ret = 0;
-    uint8_t ip[4] = {255, 255, 255, 255};
+    uint8_t ip[4] = {192, 168, 123, 255};
     uint16_t port;
 
     if (_bcast.fp < 0)
@@ -479,6 +479,34 @@ void ssll_auth(int fp, const char *id, uint8_t *key)
     os_memcpy(session->key, key, 16);
 
     sigma_event_dispatch(EVENT_TYPE_CLIENT_AUTH, (char *)id, os_strlen(id));
+}
+
+void ssll_bcast(uint8_t seq, const void *buffer, uint32_t size)
+{
+    LinkSessionLanwork *session = &_bcast;
+
+    SRLinkHeader *header = sll_pack(seq, buffer, size, session->key);
+    if (header)
+    {
+        LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
+        if (!packet)
+            SigmaLogError("out of memory");
+        if (packet)
+        {
+            packet->pos = 0;
+            packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
+            packet->buffer = (uint8_t *)header;
+            packet->_next = 0;
+
+            LinkLanworkPacket *last = session->packets;
+            while (last && last->_next)
+                last = last->_next;
+            if (last)
+                last->_next = packet;
+            else
+                session->packets = packet;
+        }
+    }
 }
 
 void ssll_report(uint8_t seq, const void *buffer, uint32_t size)

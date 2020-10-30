@@ -13,6 +13,7 @@ void sld_save(const char *device, cJSON *value);
 void sld_create(const char *device, const char *name, const char *category, const char *connections[], cJSON *attributes, cJSON *capabilities);
 void sld_delete(const char *device);
 void sld_profile_report(const char *device, const char *id);
+void sld_profile_reply(void);
 cJSON *sld_property_load(const char *device);
 void sld_property_set(const char *device, const char *ns, const char *name, cJSON *value);
 void sld_property_report(const char *device, const char *opcode);
