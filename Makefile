@@ -13,7 +13,11 @@ RM = rm -rf
 CC = gcc
 
 SOURCES = $(shell find ./ -maxdepth 1 -name "*$(SRCEXTS)")
+ifeq ($(shell uname), Linux)
 OBJS = $(foreach x,$(SRCEXTS), $(patsubst ./%$(x),$(OBJDIR)/%.o,$(filter %$(x),$(SOURCES))))
+else
+OBJS = $(foreach x,$(SRCEXTS), $(patsubst ./%$(x),$(OBJDIR)%.o,$(filter %$(x),$(SOURCES))))
+endif
 OBJDIRS	= $(sort $(dir $(OBJS)))
 
 .PHONY : all clean docs

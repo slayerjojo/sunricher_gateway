@@ -8,7 +8,8 @@
 #include "cJSON.h"
 #include "hex.h"
 
-#define LANWORK_UDP_PORT 8888
+#define LANWORK_UDP_PORT_LISTEN 8887
+#define LANWORK_UDP_PORT_BCAST 8888
 #define LANWORK_TCP_PORT 8889
 
 #define LANWORK_BUFFER (1024 * 4)
@@ -139,7 +140,7 @@ void ssll_update(void)
     uint16_t port;
 
     if (_bcast.fp < 0)
-        _bcast.fp = network_udp_create(LANWORK_UDP_PORT);
+        _bcast.fp = network_udp_create(LANWORK_UDP_PORT_LISTEN);
     if (_bcast.fp >= 0)
     {
         LinkLanworkPacket *packet = _bcast.packets, *min = 0, *prev = 0, *prev_min = 0;
@@ -162,7 +163,7 @@ void ssll_update(void)
         {
             if (!_bcast.timer || os_ticks_from(_bcast.timer) > os_ticks_ms(50 * (min->retry + 1)))
             {
-                ret = network_udp_send(_bcast.fp, min->buffer + min->pos, min->size - min->pos, ip, LANWORK_UDP_PORT);
+                ret = network_udp_send(_bcast.fp, min->buffer + min->pos, min->size - min->pos, ip, LANWORK_UDP_PORT_BCAST);
                 if (ret < 0)
                 {
                     network_udp_close(_bcast.fp);
