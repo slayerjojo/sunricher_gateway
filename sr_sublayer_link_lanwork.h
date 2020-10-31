@@ -20,5 +20,6 @@ void ssll_auth(int fp, const char *id, uint8_t *key);
 void ssll_bcast(uint8_t seq, const void *buffer, uint32_t size);
 void ssll_report(uint8_t seq, const void *buffer, uint32_t size);
 void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size);
+void ssll_raw(int fp, uint8_t *key, uint8_t seq, const void *buffer, uint32_t size);
 
 #endif

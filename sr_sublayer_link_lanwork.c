@@ -97,6 +97,8 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         {
             hex2bin(key, userKey->valuestring, 32);
             sll_client_add(user->valuestring, key);
+            ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
+            ret = 16;
         }
     }
 
@@ -115,7 +117,10 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
     cJSON_AddItemToObject(payload, "userId", cJSON_CreateString(user->valuestring));
     cJSON_AddItemToObject(resp, "payload", payload);
     char *rsp = cJSON_PrintUnformatted(resp);
-    ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
+    if (ret < 0)
+        ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
+    else
+        ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
     os_free(rsp);
     cJSON_Delete(resp);
 }
@@ -556,6 +561,41 @@ void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
     while (session)
     {
         if (!os_strcmp(session->id, id))
+        {
+            SRLinkHeader *header = sll_pack(seq, buffer, size, key);
+            if (header)
+            {
+                LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
+                if (!packet)
+                    SigmaLogError("out of memory");
+                if (packet)
+                {
+                    packet->pos = 0;
+                    packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
+                    packet->buffer = (uint8_t *)header;
+                    packet->_next = 0;
+
+                    LinkLanworkPacket *last = session->packets;
+                    while (last && last->_next)
+                        last = last->_next;
+                    if (last)
+                        last->_next = packet;
+                    else
+                        session->packets = packet;
+                }
+            }
+            break;
+        }
+        session = session->_next;
+    }
+}
+
+void ssll_raw(int fp, uint8_t *key, uint8_t seq, const void *buffer, uint32_t size)
+{
+    LinkSessionLanwork *session = _sessions;
+    while (session)
+    {
+        if (session->fp == fp)
         {
             SRLinkHeader *header = sll_pack(seq, buffer, size, key);
             if (header)
