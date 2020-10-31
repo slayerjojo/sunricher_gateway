@@ -3,6 +3,10 @@
 
 #include "env.h"
 
+#define TELINK_MESH_OPCODE_ALL_ON 0xd0
+#define TELINK_MESH_OPCODE_LUMINANCE 0xd2
+#define TELINK_MESH_OPCODE_COLOR 0xe2
+
 typedef struct
 {
     uint16_t l2capLen;

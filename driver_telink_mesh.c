@@ -22,22 +22,19 @@ enum {
 
 enum
 {
-    STATE_TLMAD_REQUEST,
-    STATE_TLMAD_WAIT,
-    STATE_TLMAD_OVER,
-    
+    STATE_TLM_REQUEST,
+    STATE_TLM_WAIT,
+    STATE_TLM_OVER,
+
     STATE_TLMSM_GET_NAME,
     STATE_TLMSM_GET_PASSWORD,
     STATE_TLMSM_GET_LTK,
     STATE_TLMSM_TAKE_EFFECT,
-    STATE_TLMSM_WAIT,
-    STATE_TLMSM_OVER,
 
     STATE_TLMGM_GET_NAME,
     STATE_TLMGM_GET_PASSWORD,
     STATE_TLMGM_GET_LTK,
-    STATE_TLMGM_WAIT,
-    STATE_TLMGM_OVER,
+
 };
 
 typedef struct
@@ -70,9 +67,79 @@ typedef struct
     void (*rsp)(int ret, const char *name, const char *password, const uint8_t *ltk);
 }SigmaMissionTLMGetMesh;
 
+typedef struct
+{
+    void (*rsp)(int ret);
+
+    uint32_t timer;
+    uint8_t state;
+    uint16_t dst;
+    uint32_t seq;
+    uint8_t onoff;
+    uint16_t delay;
+}SigmaMissionTLMLightOnoff;
+
+typedef struct
+{
+    void (*rsp)(int ret);
+
+    uint32_t timer;
+    uint8_t state;
+    uint16_t dst;
+    uint32_t seq;
+    uint8_t luminance;
+}SigmaMissionTLMLightLuminance;
+
+typedef struct
+{
+    void (*rsp)(int ret);
+
+    uint32_t timer;
+    uint8_t state;
+    uint16_t dst;
+    uint32_t seq;
+    uint8_t color;
+    uint8_t value;
+}SigmaMissionTLMLightMonocolor;
+
+typedef struct
+{
+    void (*rsp)(int ret);
+
+    uint32_t timer;
+    uint8_t state;
+    uint16_t dst;
+    uint32_t seq;
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+}SigmaMissionTLMLightRGBColor;
+
+typedef struct
+{
+    void (*rsp)(int ret);
+
+    uint32_t timer;
+    uint8_t state;
+    uint16_t dst;
+    uint32_t seq;
+    uint8_t ct;
+}SigmaMissionTLMLightCTColor;
+
+typedef struct
+{
+    uint8_t seq[3];
+    uint8_t src[2];
+    uint8_t dst[2];
+    uint8_t opcode;
+    uint8_t vendor[2];
+    uint8_t payload[];
+}__attribute__((packed)) TelinkMeshPacket;
+
 static uint8_t _buffer[1024] = {0};
 static uint16_t _size = 0;
 static uint8_t _state = 0;
+static uint32_t _sequence = 0;
 static TelinkMeshListener _listener = 0;
 
 static void usart_packet(uint8_t cmd, uint8_t *parameters, uint16_t size)
@@ -605,12 +672,157 @@ int telink_mesh_get(void (*rsp)(int ret, const char *name, const char *password,
     return 0;
 }
 
-int telink_mesh_light_onoff(uint16_t dst, uint8_t onoff, uint16_t delay)
+int mission_light_onoff(SigmaMission *mission)
 {
+    SigmaMissionTLMLightOnoff *ctx = (SigmaMissionTLMLightOnoff *)sigma_mission_extends(mission);
+
+    if (STATE_TLM_REQUEST == ctx->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 3] = {0};
+
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = ctx->dst;
+        p->dst[1] = ctx->dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_ALL_ON;
+        p->vendor[0] = 0x11;
+        p->vendor[1] = 0x02;
+        p->payload[0] = ctx->onoff;
+        p->payload[1] = ctx->delay >> 0;
+        p->payload[2] = ctx->delay >> 8;
+
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 3);
+        ctx->state = STATE_TLM_WAIT;
+        ctx->timer = os_ticks();
+    }
+    else if (STATE_TLM_WAIT == ctx->state)
+    {
+        if (os_ticks_from(ctx->timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError("timeout");
+            if (ctx->rsp)
+                ctx->rsp(-1);
+            return 1;
+        }
+    }
+    else if (STATE_TLM_OVER == ctx->state)
+    {
+        if (ctx->rsp)
+            ctx->rsp(-1);
+        return 1;
+    }
+    return 0;
+}
+
+int telink_mesh_light_onoff(uint16_t dst, uint8_t onoff, uint16_t delay, void (*rsp)(int ret))
+{
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_TELINK_LIGHT_ONOFF != mission->type)
+            continue;
+        SigmaMissionTLMLightOnoff *ctx = sigma_mission_extends(mission);
+        if (ctx->dst != dst)
+            continue;
+        break;
+    }
+    if (!mission)
+        mission = sigma_mission_create(0, MISSION_TYPE_TELINK_LIGHT_ONOFF, mission_light_onoff, sizeof(SigmaMissionTLMLightOnoff));
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        if (rsp)
+            rsp(-1);
+        return -1;
+    }
+    SigmaMissionTLMLightOnoff *ctx = sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->dst = dst;
+    ctx->onoff = onoff;
+    ctx->delay = delay;
+    ctx->rsp = rsp;
+    return 0;
+}
+
+int mission_light_luminance(SigmaMission *mission)
+{
+    SigmaMissionTLMLightLuminance *ctx = (SigmaMissionTLMLightLuminance *)sigma_mission_extends(mission);
+
+    if (STATE_TLM_REQUEST == ctx->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 1] = {0};
+
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = ctx->dst;
+        p->dst[1] = ctx->dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_LUMINANCE;
+        p->vendor[0] = 0x11;
+        p->vendor[1] = 0x02;
+        p->payload[0] = ctx->luminance;
+
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 1);
+        ctx->state = STATE_TLM_WAIT;
+        ctx->timer = os_ticks();
+    }
+    else if (STATE_TLM_WAIT == ctx->state)
+    {
+        if (os_ticks_from(ctx->timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError("timeout");
+            if (ctx->rsp)
+                ctx->rsp(-1);
+            return 1;
+        }
+    }
+    else if (STATE_TLM_OVER == ctx->state)
+    {
+        if (ctx->rsp)
+            ctx->rsp(-1);
+        return 1;
+    }
+    return 0;
 }
 
 int telink_mesh_light_luminance(uint16_t dst, uint8_t luminance)
 {
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_TELINK_LIGHT_LUMINANCE != mission->type)
+            continue;
+        SigmaMissionTLMLightLuminance *ctx = sigma_mission_extends(mission);
+        if (ctx->dst != dst)
+            continue;
+        break;
+    }
+    if (!mission)
+        mission = sigma_mission_create(0, MISSION_TYPE_TELINK_LIGHT_LUMINANCE, mission_light_luminance, sizeof(SigmaMissionTLMLightLuminance));
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        if (rsp)
+            rsp(-1);
+        return -1;
+    }
+    SigmaMissionTLMLightLuminance *ctx = sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->dst = dst;
+    ctx->luminance = luminance;
+    ctx->rsp = rsp;
+    return 0;
 }
 
 int telink_mesh_music_start(uint16_t dst)
@@ -623,14 +835,235 @@ int telink_mesh_music_stop(uint16_t dst)
     return telink_mesh_light_luminance(dst, 0xff);
 }
 
+int mission_light_monocolor(SigmaMission *mission)
+{
+    SigmaMissionTLMLightMonocolor *ctx = (SigmaMissionTLMLightMonocolor *)sigma_mission_extends(mission);
+
+    if (STATE_TLM_REQUEST == ctx->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 2] = {0};
+
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = ctx->dst;
+        p->dst[1] = ctx->dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_COLOR;
+        p->vendor[0] = 0x11;
+        p->vendor[1] = 0x02;
+        p->payload[0] = ctx->color;
+        p->payload[1] = ctx->value;
+
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 2);
+        ctx->state = STATE_TLM_WAIT;
+        ctx->timer = os_ticks();
+    }
+    else if (STATE_TLM_WAIT == ctx->state)
+    {
+        if (os_ticks_from(ctx->timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError("timeout");
+            if (ctx->rsp)
+                ctx->rsp(-1);
+            return 1;
+        }
+    }
+    else if (STATE_TLM_OVER == ctx->state)
+    {
+        if (ctx->rsp)
+            ctx->rsp(-1);
+        return 1;
+    }
+    return 0;
+}
+
 int telink_mesh_light_monocolor(uint16_t dst, uint8_t color, uint8_t value)
 {
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_TELINK_LIGHT_MONOCOLOR != mission->type)
+            continue;
+        SigmaMissionTLMLightMonocolor *ctx = sigma_mission_extends(mission);
+        if (ctx->dst != dst)
+            continue;
+        if (ctx->color != color)
+            continue;
+        break;
+    }
+    if (!mission)
+        mission = sigma_mission_create(0, MISSION_TYPE_TELINK_LIGHT_MONOCOLOR, mission_light_monocolor, sizeof(SigmaMissionTLMLightMonocolor));
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        if (rsp)
+            rsp(-1);
+        return -1;
+    }
+    SigmaMissionTLMLightMonocolor *ctx = sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->dst = dst;
+    ctx->color = color;
+    ctx->value = value;
+    ctx->rsp = rsp;
+    return 0;
+}
+
+int mission_light_rgbcolor(SigmaMission *mission)
+{
+    SigmaMissionTLMLightRGBColor *ctx = (SigmaMissionTLMLightRGBColor *)sigma_mission_extends(mission);
+
+    if (STATE_TLM_REQUEST == ctx->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 4] = {0};
+
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = ctx->dst;
+        p->dst[1] = ctx->dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_COLOR;
+        p->vendor[0] = 0x11;
+        p->vendor[1] = 0x02;
+        p->payload[0] = 0x04;
+        p->payload[1] = ctx->red;
+        p->payload[2] = ctx->green;
+        p->payload[3] = ctx->blue;
+
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 4);
+        ctx->state = STATE_TLM_WAIT;
+        ctx->timer = os_ticks();
+    }
+    else if (STATE_TLM_WAIT == ctx->state)
+    {
+        if (os_ticks_from(ctx->timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError("timeout");
+            if (ctx->rsp)
+                ctx->rsp(-1);
+            return 1;
+        }
+    }
+    else if (STATE_TLM_OVER == ctx->state)
+    {
+        if (ctx->rsp)
+            ctx->rsp(-1);
+        return 1;
+    }
+    return 0;
 }
 
 int telink_mesh_light_color(uint16_t dst, uint8_t r, uint8_t g, uint8_t b)
 {
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_TELINK_LIGHT_RGBCOLOR != mission->type)
+            continue;
+        SigmaMissionTLMLightRGBColor *ctx = sigma_mission_extends(mission);
+        if (ctx->dst != dst)
+            continue;
+        break;
+    }
+    if (!mission)
+        mission = sigma_mission_create(0, MISSION_TYPE_TELINK_LIGHT_RGBCOLOR, mission_light_rgbcolor, sizeof(SigmaMissionTLMLightRGBColor));
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        if (rsp)
+            rsp(-1);
+        return -1;
+    }
+    SigmaMissionTLMLightRGBColor *ctx = sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->dst = dst;
+    ctx->red = r;
+    ctx->green = g;
+    ctx->blue = b;
+    return 0;
 }
 
-int telink_mesh_light_ct(uint16_t dst, uint8_t percentage)
+int mission_light_ctcolor(SigmaMission *mission)
 {
+    SigmaMissionTLMLightCTColor *ctx = (SigmaMissionTLMLightCTColor *)sigma_mission_extends(mission);
+
+    if (STATE_TLM_REQUEST == ctx->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 2] = {0};
+
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = ctx->dst;
+        p->dst[1] = ctx->dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_COLOR;
+        p->vendor[0] = 0x11;
+        p->vendor[1] = 0x02;
+        p->payload[0] = 0x05;
+        p->payload[1] = ctx->ct;
+
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 2);
+        ctx->state = STATE_TLM_WAIT;
+        ctx->timer = os_ticks();
+    }
+    else if (STATE_TLM_WAIT == ctx->state)
+    {
+        if (os_ticks_from(ctx->timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError("timeout");
+            if (ctx->rsp)
+                ctx->rsp(-1);
+            return 1;
+        }
+    }
+    else if (STATE_TLM_OVER == ctx->state)
+    {
+        if (ctx->rsp)
+            ctx->rsp(-1);
+        return 1;
+    }
+    return 0;
+}
+
+int telink_mesh_light_ctcolor(uint16_t dst, uint8_t percentage)
+{
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_TELINK_LIGHT_CTCOLOR != mission->type)
+            continue;
+        SigmaMissionTLMLightCTColor *ctx = sigma_mission_extends(mission);
+        if (ctx->dst != dst)
+            continue;
+        break;
+    }
+    if (!mission)
+        mission = sigma_mission_create(0, MISSION_TYPE_TELINK_LIGHT_CTCOLOR, mission_light_ctcolor, sizeof(SigmaMissionTLMLightCTColor));
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        if (rsp)
+            rsp(-1);
+        return -1;
+    }
+    SigmaMissionTLMLightCTColor *ctx = sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->dst = dst;
+    ctx->ct = ct;
+    return 0;
 }
