@@ -422,6 +422,7 @@ void ssll_update(void)
                             {
                                 cJSON_AddItemToObject(msg, "user", cJSON_CreateString(session->id));
                                 cJSON_AddItemToObject(msg, "fp", cJSON_CreateNumber(session->fp));
+                                session->timer = os_ticks();
                             }
                             sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
                         } while (0);
