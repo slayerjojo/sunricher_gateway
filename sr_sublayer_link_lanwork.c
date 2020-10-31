@@ -13,7 +13,7 @@
 #define LANWORK_TCP_PORT 8889
 
 #define LANWORK_BUFFER (1024 * 4)
-#define LANWORK_IDLE_INTERVAL 30000
+#define LANWORK_IDLE_INTERVAL 60000
 
 typedef struct _link_lanwork_packet {
     struct _link_lanwork_packet *_next;
