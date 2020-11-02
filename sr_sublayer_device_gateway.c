@@ -84,6 +84,8 @@ void ssdg_init(void)
         kv_set("gateway", id, os_strlen(id));
         cJSON_Delete(attrs);
         cJSON_Delete(capabilities);
+        
+        gateway = kv_acquire("gateway", 0);
     }
     sslm_start(gateway);
     os_free(gateway);
