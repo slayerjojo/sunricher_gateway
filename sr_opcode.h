@@ -4,6 +4,7 @@
 #define PROTOCOL_VERSION "1.0"
 
 #define OPCODE_DISCOVER_GATEWAY "DiscoverGateway"
+#define OPCODE_DISCOVER_GATEWAY_RESP "DiscoverGatewayResponse"
 #define OPCODE_GATEWAY_ADD_DEVICE_START "AddNewDevice"
 #define OPCODE_GATEWAY_ADD_DEVICE_STOP "StopAddNewDevice"
 #define OPCODE_BIND_GATEWAY "BindGateway"

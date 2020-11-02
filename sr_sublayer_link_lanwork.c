@@ -107,11 +107,12 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
     header = cJSON_CreateObject();
     cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
     cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_RESP));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
     cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
     cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
     cJSON_AddItemToObject(resp, "header", header);
     payload = cJSON_CreateObject();
+    cJSON_AddItemToObject(payload, "mac", cJSON_CreateString(ret < 0 ? "UNBOUND" : "OK"));
     cJSON_AddItemToObject(payload, "bindResult", cJSON_CreateString(ret < 0 ? "UNBOUND" : "OK"));
     cJSON_AddItemToObject(payload, "isOwner", cJSON_CreateBool(!os_strcmp(owner, user->valuestring)));
     cJSON_AddItemToObject(payload, "userId", cJSON_CreateString(user->valuestring));

@@ -1,4 +1,5 @@
 #include "sr_sublayer_device_gateway.h"
+#include "sr_layer_link.h"
 #include "sr_layer_device.h"
 #include "sr_sublayer_link_mqtt.h"
 #include "sr_opcode.h"
@@ -59,7 +60,44 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
     }
     else if (!os_strcmp(name->valuestring, OPCODE_DISCOVER_GATEWAY))
     {
-        sld_profile_reply();
+        char *gateway = 0;
+        cJSON *ep = 0;
+        do
+        {
+            gateway = kv_acquire("gateway", 0);
+            if (!gateway)
+            {
+                SigmaLogError("gateway not found.");
+                break;
+            }
+
+            ep = sld_load(gateway);
+            if (!ep)
+            {
+                SigmaLogError("device %d not found.", gateway);
+                break;
+            }
+
+            uint8_t seq = sll_seq();
+            cJSON *packet = cJSON_CreateObject();
+            cJSON *header = cJSON_CreateObject();
+            cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+            cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+            cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
+            cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+            cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+            cJSON_AddItemToObject(packet, "header", header);
+
+            cJSON_AddItemToObject(packet, "endpoint", ep);
+
+            char *str = cJSON_PrintUnformatted(packet);
+            sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_BROADCAST);
+            os_free(str);
+            cJSON_Delete(packet);
+        }
+        while (0);
+        if (gateway)
+            kv_free(gateway);
     }
 }
 

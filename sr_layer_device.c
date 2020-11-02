@@ -327,7 +327,7 @@ void sld_profile_reply(void)
     char *device = 0;
     char *gateway = 0;
     if (!device)
-        device = gateway = kv_acquire("gateway", 0);
+        device = gateway ;
     cJSON *ep = sld_load(device);
     if (!ep)
     {
@@ -342,10 +342,13 @@ void sld_profile_reply(void)
     cJSON *header = cJSON_CreateObject();
     cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
     cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_REPORT));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
     cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
     cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
     cJSON_AddItemToObject(packet, "header", header);
+
+    cJSON *payload = cJSON_CreateObject();
+    cJSON_AddItemToObject(payload, "mac", header);
 
     cJSON_AddItemToObject(packet, "endpoint", ep);
 
