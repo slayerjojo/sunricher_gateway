@@ -1825,7 +1825,7 @@ int telink_mesh_scene_load(uint16_t dst, uint8_t scene)
     return 0;
 }
 
-int telink_mesh_send(uint16_t dst, uint8_t *buffer, uint32_t size)
+int telink_mesh_extend_device_type(uint16_t dst, )
 {
 }
 
