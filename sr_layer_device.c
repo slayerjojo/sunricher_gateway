@@ -58,6 +58,8 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
             return;
         }
 
+        SigmaLogAction("handle device add or update");
+
         cJSON *item = ep->child;
         while (item)
         {
@@ -88,6 +90,8 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
             SigmaLogError("endpointId not found");
             return;
         }
+
+        SigmaLogAction("handle device delete");
 
         sld_delete(epid->valuestring);
     }
@@ -134,6 +138,8 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
             SigmaLogError("endpointId not found");
             return;
         }
+
+        SigmaLogAction("handle device state report");
 
         sld_property_report(epid->valuestring, OPCODE_DEVICE_STATE_REPORT);
     }

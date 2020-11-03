@@ -252,6 +252,9 @@ void ssll_update(void)
                     sprintf(ips, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
                     cJSON_AddItemToObject(msg, "ip", cJSON_CreateString(ips));
                     cJSON_AddItemToObject(msg, "port", cJSON_CreateNumber(port));
+
+                    SigmaLogAction("bcast recv:%s", (const char *)(packet + 1));
+
                     sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
                 } while (0);
                 if (msg)
@@ -425,6 +428,9 @@ void ssll_update(void)
                                 cJSON_AddItemToObject(msg, "fp", cJSON_CreateNumber(session->fp));
                                 session->timer = os_ticks();
                             }
+
+                            SigmaLogAction("session %s:%d recv:%s", session->id, session->fp, (const char *)(packet + 1));
+
                             sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
                         } while (0);
                         if (msg)
@@ -466,6 +472,8 @@ void ssll_update(void)
 void ssll_bind(void)
 {
     _timer_bind = os_ticks();
+
+    SigmaLogAction("timer for binding gateway is started");
 }
 
 void ssll_auth(int fp, const char *id, uint8_t *key)
@@ -484,6 +492,8 @@ void ssll_auth(int fp, const char *id, uint8_t *key)
     }
     os_strcpy(session->id, id);
     os_memcpy(session->key, key, 16);
+
+    SigmaLogAction("session is authed(id:%s)", session->id);
 
     sigma_event_dispatch(EVENT_TYPE_CLIENT_AUTH, (char *)id, os_strlen(id));
 }

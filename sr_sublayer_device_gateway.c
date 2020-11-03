@@ -91,6 +91,9 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
             cJSON_AddItemToObject(packet, "endpoint", ep);
 
             char *str = cJSON_PrintUnformatted(packet);
+
+            SigmaLogAction("response discover gateway: %s", str);
+
             sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_BROADCAST);
             os_free(str);
             cJSON_Delete(packet);
