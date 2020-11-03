@@ -2,6 +2,30 @@
 #include "interface_usart.h"
 #include "sigma_mission.h"
 
+#define TELINK_MESH_OPCODE_ALL_ON 0xd0
+#define TELINK_MESH_OPCODE_LUMINANCE 0xd2
+#define TELINK_MESH_OPCODE_COLOR 0xe2
+#define TELINK_MESH_OPCODE_DEVICE_ADDR 0xe0
+#define TELINK_MESH_OPCODE_DEVICE_ADDR_RESPONSE 0xe1
+#define TELINK_MESH_OPCODE_STATUS_ALL 0xda
+#define TELINK_MESH_OPCODE_STATUS_RESPONSE 0xdb
+#define TELINK_MESH_OPCODE_KICKOUT 0xe3
+#define TELINK_MESH_OPCODE_TIME_SET 0xe4
+#define TELINK_MESH_OPCODE_TIME_GET 0xe8
+#define TELINK_MESH_OPCODE_TIME_RESPONSE 0xe9
+#define TELINK_MESH_OPCODE_ALARM 0xe5
+#define TELINK_MESH_OPCODE_ALARM_GET 0xe6
+#define TELINK_MESH_OPCODE_ALARM_RESPONSE 0xe7
+#define TELINK_MESH_OPCODE_GROUP 0xd7
+#define TELINK_MESH_OPCODE_GROUP_GET 0xdd
+#define TELINK_MESH_OPCODE_GROUP_RESPONSE_8 0xd4
+#define TELINK_MESH_OPCODE_GROUP_RESPONSE_F4 0xd5
+#define TELINK_MESH_OPCODE_GROUP_RESPONSE_B4 0xd6
+#define TELINK_MESH_OPCODE_SCENE 0xee
+#define TELINK_MESH_OPCODE_SCENE_LOAD 0xef
+#define TELINK_MESH_OPCODE_USER_ALL 0xea
+#define TELINK_MESH_OPCODE_USER_RESPONSE 0xeb
+
 #define ATT_OP_ERROR_RSP                    0x01 //!< Error Response op code
 #define ATT_OP_EXCHANGE_MTU_REQ             0x02 //!< Exchange MTU Request op code
 #define ATT_OP_EXCHANGE_MTU_RSP             0x03 //!< Exchange MTU Response op code
@@ -64,6 +88,21 @@ enum
     STATE_TLMGM_GET_LTK,
 
 };
+
+typedef struct
+{
+    uint16_t l2capLen;
+    uint16_t chanId;
+    uint8_t opcode;
+}__attribute_((packed)) TelinkBLEMeshHeader;
+
+typedef struct
+{
+    uint16_t l2capLen;
+    uint16_t chanId;
+    uint8_t opcode;
+    uint8_t handle[2];
+}__attribute_((packed)) TelinkBLEMeshNotify;
 
 typedef struct
 {
@@ -306,6 +345,146 @@ static void usart_packet(uint8_t cmd, uint8_t *parameters, uint16_t size)
             if (_write_rsp && *_write_rsp == STATE_TLM_WAIT)
                 *_write_rsp = STATE_TLM_OVER;
             _write_rsp = 0;
+        }
+        else if (ATT_OP_HANDLE_VALUE_NOTI == header->opcode)
+        {
+            TelinkBLEMeshNotify *notify = (TelinkBLEMeshNotify *)header;
+
+            TelinkMeshPacket *packet = (TelinkMeshPacket *)(notify + 1);
+            if (packet->vendor[0] != 0x11 || packet->vendor[1] != 0x01)
+            {
+                SigmaLogError("vendor error.(vendor:%02x%02x)", packet->vendor[0], packet->vendor[1]);
+                return;
+            }
+            if (packet->opcode == TELINK_MESH_OPCODE_DEVICE_ADDR_RESPONSE)
+            {
+                _listener(TELINK_EVENT_DEVICE_ADDR, packet->payload, 2);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_GROUP_RESPONSE_8)
+            {
+                TelinkMeshEventGroup *e = os_malloc(sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * 8);
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->count = 0;
+                int i = 0;
+                while (i < 8)
+                {
+                    if (packet->payload[i] != 0xff)
+                        e->groups[e->count++] = 0x8000 + packet->payload[i];
+                    i++;
+                }
+                _listener(TELINK_EVENT_DEVICE_GROUP, e, sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * e->count);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_GROUP_RESPONSE_F4)
+            {
+                TelinkMeshEventGroup *e = os_malloc(sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * 4);
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->count = 0;
+                int i = 0;
+                while (i < 4)
+                {
+                    if (*(uint16_t *)&(packet->payload[2 * i]) != 0xffff)
+                        e->groups[e->count++] = *(uint16_t *)&(packet->payload[2 * i]);
+                    i++;
+                }
+                _listener(TELINK_EVENT_DEVICE_GROUP, e, sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * e->count);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_GROUP_RESPONSE_B4)
+            {
+                TelinkMeshEventGroup *e = os_malloc(sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * 4);
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->count = 0;
+                int i = 0;
+                while (i < 4)
+                {
+                    if (*(uint16_t *)&(packet->payload[2 * i]) != 0xffff)
+                        e->groups[e->count++] = *(uint16_t *)&(packet->payload[2 * i]);
+                    i++;
+                }
+                _listener(TELINK_EVENT_DEVICE_GROUP, e, sizeof(TelinkMeshEventGroup) + sizeof(uint16_t) * e->count);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_STATUS_RESPONSE)
+            {
+                TelinkMeshEventStatus *e = os_malloc(sizeof(TelinkMeshEventStatus) + sizeof(uint8_t) * 6);
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->ttc = packet->payload[8];
+                e->hops = packet->payload[9];
+                os_memcpy(e->values, packet->payload, 6);
+                _listener(TELINK_EVENT_DEVICE_STATUS, e, sizeof(TelinkMeshEventStatus) + sizeof(uint16_t) * e->count);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_USER_RESPONSE)
+            {
+                TelinkMeshEventExtends *e = os_malloc(sizeof(TelinkMeshEventExtends) + sizeof(uint8_t) * (size - sizeof(TelinkBLEMeshNotify) - sizeof(TelinkMeshPacket) - 1));
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->size = size - sizeof(TelinkBLEMeshNotify) - sizeof(TelinkMeshPacket) - 1;
+                os_memcpy(e->values, packet->payload + 1, e->size);
+                _listener(TELINK_EVENT_EXTENDS, e, sizeof(TelinkMeshEventExtends) + e->size);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_TIME_RESPONSE)
+            {
+                TelinkMeshEventTime *e = os_malloc(sizeof(TelinkMeshEventTime));
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->year = *(uint16_t *)packet->payload;
+                e->month = packet->payload[2];
+                e->day = packet->payload[3];
+                e->hour = packet->payload[4];
+                e->minute = packet->payload[5];
+                e->second = packet->payload[6];
+                _listener(TELINK_EVENT_DEVICE_TIME, e, sizeof(TelinkMeshEventExtends) + e->size);
+                os_free(e);
+            }
+            else if (packet->opcode == TELINK_MESH_OPCODE_ALARM_RESPONSE)
+            {
+                TelinkMeshEventTime *e = os_malloc(sizeof(TelinkMeshEventTime));
+                if (!e)
+                {
+                    SigmaLogError("out of memory");
+                    return;
+                }
+                e->addr = *(uint16_t *)packet->src;
+                e->year = *(uint16_t *)packet->payload;
+                e->month = packet->payload[2];
+                e->day = packet->payload[3];
+                e->hour = packet->payload[4];
+                e->minute = packet->payload[5];
+                e->second = packet->payload[6];
+                _listener(TELINK_EVENT_DEVICE_TIME, e, sizeof(TelinkMeshEventExtends) + e->size);
+                os_free(e);
+            }
         }
     }
     else if (GATEWAY_EVENT_PROVISION_COMPLETE == cmd)
@@ -1825,10 +2004,33 @@ int telink_mesh_scene_load(uint16_t dst, uint8_t scene)
     return 0;
 }
 
-int telink_mesh_extend_device_type(uint16_t dst, )
+int telink_mesh_extend_write(uint16_t dst, uint8_t relays, uint8_t *buffer, uint8_t size)
 {
-}
-
-int telink_mesh_recv(uint16_t *dst, uint8_t *buffer, uint32_t size)
-{
+    SigmaMissionIterator it = {0};
+    SigmaMission *mission = 0;
+    while ((mission = sigma_mission_iterator(&it)) && (MISSION_TYPE_TELINK_MESH_BLE_PACKET != mission->type));
+    mission = sigma_mission_create(mission, MISSION_TYPE_TELINK_MESH_BLE_PACKET, mission_ble_packet, sizeof(SigmaMissionTLMBLEPacket) + sizeof(TelinkMeshPacket) + 1 + size);
+    if (!mission)
+    {
+        SigmaLogError("out of memory");
+        return -1;
+    }
+    SigmaMissionTLMBLEPacket *ctx = (SigmaMissionTLMBLEPacket *)sigma_mission_extends(mission);
+    ctx->state = STATE_TLM_REQUEST;
+    ctx->size = 1 + size;
+    TelinkMeshPacket *p = (TelinkMeshPacket *)ctx->packet;
+    p->seq[0] = _sequence >> 0;
+    p->seq[1] = _sequence >> 8;
+    p->seq[2] = _sequence >> 16;
+    _sequence++;
+    p->src[0] = 0;
+    p->src[1] = 0;
+    p->dst[0] = dst >> 0;
+    p->dst[1] = dst >> 8;
+    p->opcode = TELINK_MESH_OPCODE_USER_ALL;
+    p->vendor[0] = 0x11;
+    p->vendor[1] = 0x02;
+    p->payload[0] = relays;
+    os_memcpy(p->payload + 1, buffer, size);
+    return 0;
 }
