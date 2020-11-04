@@ -10,6 +10,8 @@ extern "C"
 
 #if defined(PLATFORM_LINUX)
 
+#include "driver_usart_linux.h"
+
 #define usart_init linux_usart_init
 #define usart_update linux_usart_update
 #define usart_open linux_usart_open
