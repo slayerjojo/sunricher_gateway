@@ -7,6 +7,11 @@
 
 #define PACKET_HEADER 0xaa
 
+#define PACKET_TYPE_JSON 0x01
+#define PACKET_TYPE_JSON_AES128 0x02
+#define PACKET_TYPE_BINARY 0x03
+#define PACKET_TYPE_BINARY_AES128 0x04
+
 static uint8_t _seq = 0;
 
 void sll_init(void)
@@ -37,6 +42,7 @@ SRLinkHeader *sll_pack(uint8_t seq, const void *buffer, uint32_t size, const uin
     }
     packet->head = 0xaa;
     packet->length = network_htonl(key ? (size / 16 + 1) * 16 : size);
+    packet->type = PACKET_TYPE_JSON;
     packet->seq = seq;
     uint8_t i, cs = 0;
     for (i = 0; i < sizeof(SRLinkHeader) - 1; i++)

@@ -281,7 +281,7 @@ void ssll_update(void)
                     cJSON *idx = cJSON_GetObjectItem(header, "messageIndex");
                     if (!idx || (((unsigned int)idx->valueint) & 0xff) != packet->seq)
                     {
-                        SigmaLogDump(LOG_LEVEL_ERROR, buffer, ret, "packet messageIndex not match.raw:");
+                        SigmaLogDump(LOG_LEVEL_ERROR, buffer, ret, "packet messageIndex not match.(messageIndex:%u vs %u json:%s)raw:", packet->seq, (((unsigned int)idx->valueint) & 0xff), (const char *)(packet + 1));
                         break;
                     }
                     cJSON *name = cJSON_GetObjectItem(header, "name");
@@ -451,7 +451,7 @@ void ssll_update(void)
                             cJSON *idx = cJSON_GetObjectItem(header, "messageIndex");
                             if (!idx || (((unsigned int)idx->valueint) & 0xff) != packet->seq)
                             {
-                                SigmaLogDump(LOG_LEVEL_ERROR, session->buffer, session->size, "packet messageIndex not match.raw:");
+                                SigmaLogDump(LOG_LEVEL_ERROR, session->buffer, session->size, "packet messageIndex not match.(messageIndex:%u vs %u json:%s)raw:", packet->seq, (((unsigned int)idx->valueint) & 0xff), (const char *)(packet + 1));
                                 break;
                             }
                             if (!session->auth)
@@ -557,6 +557,8 @@ void ssll_bcast(uint8_t seq, const void *buffer, uint32_t size)
             SigmaLogError("out of memory");
         if (packet)
         {
+            os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
             packet->pos = 0;
             packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
             packet->buffer = (uint8_t *)header;
@@ -588,6 +590,8 @@ void ssll_report(uint8_t seq, const void *buffer, uint32_t size)
                     SigmaLogError("out of memory");
                 if (packet)
                 {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
                     packet->pos = 0;
                     packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
                     packet->buffer = (uint8_t *)header;
@@ -629,6 +633,8 @@ void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
                     SigmaLogError("out of memory");
                 if (packet)
                 {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
                     packet->pos = 0;
                     packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
                     packet->buffer = (uint8_t *)header;
@@ -664,6 +670,8 @@ void ssll_raw(int fp, uint8_t *key, uint8_t seq, const void *buffer, uint32_t si
                     SigmaLogError("out of memory");
                 if (packet)
                 {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
                     packet->pos = 0;
                     packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
                     packet->buffer = (uint8_t *)header;
