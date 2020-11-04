@@ -8,6 +8,8 @@
 #define OPCODE_GATEWAY_ADD_DEVICE_START "AddNewDevice"
 #define OPCODE_GATEWAY_ADD_DEVICE_STOP "StopAddNewDevice"
 #define OPCODE_BIND_GATEWAY "BindGateway"
+#define OPCODE_BOUND_USERS_QUERY "BoundUsers"
+#define OPCODE_BOUND_USERS_REPORT "BoundUsersReport"
 #define OPCODE_BIND_GATEWAY_RESP "BindGatewayResponse"
 #define OPCODE_BIND_GATEWAY_REPORT "BindGatewayReport"
 #define OPCODE_DEVICE_ADD_OR_UPDATE "AddOrUpdate"
