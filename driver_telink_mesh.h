@@ -41,6 +41,7 @@ int telink_mesh_scene_load(uint16_t dst, uint8_t scene);
 int telink_mesh_scene_get(uint16_t dst, uint8_t scene, uint8_t *luminance, uint8_t *rgb);
 int telink_mesh_extend_write(uint16_t dst, const uint8_t *buffer, uint8_t size);
 int telink_mesh_extend_read(uint16_t src, uint8_t *buffer, uint8_t size);
-int telink_mesh_extend_sr_read(uint16_t src, uint8_t *buffer, uint8_t size);
+int telink_mesh_extend_sr_write(uint16_t vendor, uint16_t dst, const uint8_t *buffer, uint8_t size)
+int telink_mesh_extend_sr_read(uint16_t src, uint8_t *buffer, uint8_t match, uint8_t size);
 
 #endif

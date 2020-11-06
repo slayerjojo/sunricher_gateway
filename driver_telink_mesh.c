@@ -132,6 +132,7 @@ enum
     TELINK_REQUEST_SCENE_LOAD,
     TELINK_REQUEST_SCENE_GET,
     TELINK_REQUEST_EXTENDS_WRITE,
+    TELINK_REQUEST_EXTENDS_SR_WRITE,
 };
 
 typedef struct
@@ -3322,7 +3323,90 @@ int telink_mesh_extend_read(uint16_t src, uint8_t *buffer, uint8_t size)
     return 0;
 }
 
-int telink_mesh_extend_sr_read(uint16_t src, uint8_t *buffer, uint8_t size)
+typedef struct
+{
+    uint16_t vendor;
+    uint16_t dst;
+    uint8_t size;
+    uint8_t buffer[];
+}TRExtendsSRWrite;
+
+int telink_mesh_extend_sr_write(uint16_t vendor, uint16_t dst, const uint8_t *buffer, uint8_t size)
+{
+    if (_request && TELINK_REQUEST_EXTENDS_SR_WRITE != _request->type)
+        return 0;
+    TRExtendsWrite *ctx = 0;
+    if (!_request)
+    {
+        _request = os_malloc(sizeof(TelinkRequest) + sizeof(TRExtendsSRWrite) + size);
+        if (!_request)
+        {
+            SigmaLogError("out of memory");
+            return -1;
+        }
+        _request->type = TELINK_REQUEST_EXTENDS_SR_WRITE;
+        _request->state = STATE_TLM_REQUEST;
+        ctx = (TRExtendsWrite *)(_request + 1);
+        ctx->vendor = vendor;
+        ctx->dst = dst;
+        ctx->size = size;
+        os_memcpy(ctx->buffer, buffer, size);
+    }
+    ctx = (TRExtendsWrite *)(_request + 1);
+    if (ctx->dst != dst || ctx->size != size || os_memcmp(ctx->buffer, buffer, size))
+        return 0;
+    if (STATE_TLM_REQUEST == _request->state)
+    {
+        uint8_t cmd[sizeof(TelinkMeshPacket) + 1] = {0};
+        TelinkMeshPacket *p = (TelinkMeshPacket *)cmd;
+        p->seq[0] = _sequence >> 0;
+        p->seq[1] = _sequence >> 8;
+        p->seq[2] = _sequence >> 16;
+        _sequence++;
+        p->src[0] = 0;
+        p->src[1] = 0;
+        p->dst[0] = dst >> 0;
+        p->dst[1] = dst >> 8;
+        p->opcode = TELINK_MESH_OPCODE_USER_ALL;
+        p->vendor[0] = vendor >> 0;
+        p->vendor[1] = vendor >> 8;
+        p->payload[0] = 0x10;
+        os_memcpy(p->payload + 1, buffer, size);
+        usart_write(0, cmd, sizeof(TelinkMeshPacket) + 1);
+        _request->state = STATE_TLM_WAIT;
+        _timer = os_ticks();
+    }
+    if (STATE_TLM_WAIT == _request->state)
+    {
+        if (os_ticks_from(_timer) < os_ticks_ms(200))
+        {
+            SigmaLogError("timeout");
+            return -1;
+        }
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == GATEWAY_EVENT_MESH && ATT_OP_WRITE_RSP == ((TelinkBLEMeshHeader *)packet->parameters)->opcode)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            os_free(_request);
+            _request = 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int telink_mesh_extend_sr_read(uint16_t src, uint8_t *buffer, uint8_t match, uint8_t size)
 {
     TelinkUartPacket *packet = _packets, *prev = 0;
     while (packet)
@@ -3334,9 +3418,11 @@ int telink_mesh_extend_sr_read(uint16_t src, uint8_t *buffer, uint8_t size)
             ATT_OP_HANDLE_VALUE_NOTI == notify->opcode && 
             TELINK_MESH_OPCODE_USER_RESPONSE == p->opcode &&
             src == *(uint16_t *)p->src &&
-            !os_memcmp(buffer, &(p->payload[1]), size))
+            !os_memcmp(buffer, &(p->payload[1]), match))
         {
-            os_memcpy(buffer, p->payload + 1, packet->size - sizeof(TelinkBLEMeshNotify) - sizeof(TelinkMeshPacket) - 1);
+            if (size > packet->size - sizeof(TelinkBLEMeshNotify) - sizeof(TelinkMeshPacket) - 1)
+                size = packet->size - sizeof(TelinkBLEMeshNotify) - sizeof(TelinkMeshPacket) - 1;
+            os_memcpy(buffer, p->payload + 1, size);
             break;
         }
         prev = packet;

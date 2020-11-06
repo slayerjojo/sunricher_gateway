@@ -99,14 +99,14 @@ typedef enum {
 }SRCategory;
 
 typedef enum {
-    SR_MODE_RESERVE = 0,
-    SR_MODE_FADE_UP,
-    SR_MODE_FADE_DOWN,
-    SR_MODE_FADE_UP_DOWN,
-    SR_MODE_MIX,
-    SR_MODE_JUMP,
-    SR_MODE_FLASH,
-}SRMode;
+    SR_TRANSITION_RESERVE = 0,
+    SR_TRANSITION_FADE_UP,
+    SR_TRANSITION_FADE_DOWN,
+    SR_TRANSITION_FADE_UP_DOWN,
+    SR_TRANSITION_MIX,
+    SR_TRANSITION_JUMP,
+    SR_TRANSITION_FLASH,
+}SRTransition;
 
 /*
  * 0x00
@@ -171,23 +171,31 @@ int tmes_light_mode_global_set(uint16_t dst, uint8_t mode, uint8_t enable);
 int tmes_light_mode_speed_set(uint16_t dst, uint8_t speed);
 int tmes_light_mode_temperature_set(uint16_t dst, uint8_t temperature);
 int tmes_light_mode_preinstall_set(uint16_t dst, SRPreinstallLightMode preinstall);
-int tmes_light_mode_custom_run(uint16_t dst, SRMode mode);
+int tmes_light_mode_custom_run(uint16_t dst, SRTransition transition);
 int tmes_light_scene_list(uint16_t dst, void (*rsp)(int ret, uint16_t dst, uint8_t *scenes, uint8_t size));
 int tmes_light_scene_get(uint16_t dst, uint8_t idx, uint8_t scene);
 int tmes_light_scene_save(uint16_t dst, uint8_t scene, uint16_t delay);
 int tmes_light_scene_delete(uint16_t dst, uint8_t scene);
 int tmes_light_scene_run(uint16_t dst, uint8_t scene);
-int tmes_light_channel_enable(uint16_t dst, uint8_t channel);
+int tmes_light_channel_enable(uint16_t dst, uint8_t channels, uint8_t mask);
 int tmes_light_channel_action(uint16_t dst, uint8_t channel, uint8_t action, uint8_t flag);
 int tmes_light_channel_speed_action(uint16_t dst, uint8_t action);
-int tmes_light_group_preinstall_run(uint16_t group, uint8_t preinstall, uint8_t global, uint8_t speed, uint8_t temperature);
-int tmes_light_group_custom_run(uint16_t group, uint8_t preinstall, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_preinstall_stop(void);
+int tmes_light_custom_stop(void);
+int tmes_light_preinstall_run(uint16_t group, SRPreinstallLightMode mode, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_custom_run(uint16_t group, uint8_t mode, SRTransition transition, uint8_t global, uint8_t speed, uint8_t temperature);
 int tmes_light_move_to_level(uint16_t dst, uint8_t bright, uint8_t r, uint8_t g, uint8_t b, uint8_t ct, uint16_t time);
 int tmes_light_pwm_set(uint16_t dst, uint16_t freq);
-int tmes_light_pwm_get(uint16_t dst, void (*rsp)(uint16_t dst, uint16_t dst));
+int tmes_light_pwm_get(uint16_t dst, uint16_t *freq);
 int tmes_light_pwm_deadtime_set(uint16_t dst, uint8_t interval);
-int tmes_light_pwm_deadtime_get(uint16_t dst, void (*rsp)(int ret, uint8_t interval));
+int tmes_light_pwm_deadtime_get(uint16_t dst, uint8_t interval);
 int tmes_light_bright_min_set(uint16_t dst, uint8_t percent);
 int tmes_light_bright_min_get(uint16_t dst, uint8_t *percent);
+int tmes_light_bright_gamma_set(uint16_t dst, uint8_t gamma);
+int tmes_light_bright_gamma_get(uint16_t dst, uint8_t *gamma);
+int tmes_light_onoff_duration_set(uint16_t dst, uint16_t duration);
+int tmes_light_onoff_duration_get(uint16_t dst, uint16_t *duration);
+int tmes_device_status_error(uint16_t dst, uint8_t *error);
+int tmes_device_status_running(uint16_t dst, uint8_t *bright, uint8_t *rgb, uint8_t *temperature, uint8_t *tail);
 
 #endif
