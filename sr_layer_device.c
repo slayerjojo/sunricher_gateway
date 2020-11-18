@@ -16,7 +16,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
     cJSON *header = cJSON_GetObjectItem(packet, "header");
     if (!header)
     {
-        SigmaLogError("header not found.");
+        SigmaLogError(0, 0, "header not found.");
         return;
     }
 
@@ -31,7 +31,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
     cJSON *name = cJSON_GetObjectItem(header, "name");
     if (!name)
     {
-        SigmaLogError("name not found.");
+        SigmaLogError(0, 0, "name not found.");
         return;
     }
 
@@ -40,21 +40,21 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
         {
-            SigmaLogError("endpoint not found");
+            SigmaLogError(0, 0, "endpoint not found");
             return;
         }
         
         cJSON *epid = cJSON_GetObjectItem(ep, "endpointId");
         if (!epid)
         {
-            SigmaLogError("endpointId not found");
+            SigmaLogError(0, 0, "endpointId not found");
             return;
         }
 
         cJSON *device = sld_load(epid->valuestring);
         if (!device)
         {
-            SigmaLogError("device %s not found", epid->valuestring);
+            SigmaLogError(0, 0, "device %s not found", epid->valuestring);
             return;
         }
 
@@ -78,14 +78,14 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
         {
-            SigmaLogError("endpoint not found");
+            SigmaLogError(0, 0, "endpoint not found");
             return;
         }
         
         cJSON *epid = cJSON_GetObjectItem(ep, "endpointId");
         if (!epid)
         {
-            SigmaLogError("endpointId not found");
+            SigmaLogError(0, 0, "endpointId not found");
             return;
         }
 
@@ -100,7 +100,7 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
     cJSON *header = cJSON_GetObjectItem(packet, "header");
     if (!header)
     {
-        SigmaLogError("header not found.");
+        SigmaLogError(0, 0, "header not found.");
         return;
     }
 
@@ -115,7 +115,7 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
     cJSON *name = cJSON_GetObjectItem(header, "name");
     if (!name)
     {
-        SigmaLogError("name not found.");
+        SigmaLogError(0, 0, "name not found.");
         return;
     }
 
@@ -124,14 +124,14 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
         {
-            SigmaLogError("endpoint not found");
+            SigmaLogError(0, 0, "endpoint not found");
             return;
         }
         
         cJSON *epid = cJSON_GetObjectItem(ep, "endpointId");
         if (!epid)
         {
-            SigmaLogError("endpointId not found");
+            SigmaLogError(0, 0, "endpointId not found");
             return;
         }
 
@@ -186,8 +186,40 @@ void sld_save(const char *device, cJSON *value)
 {
     char *str = cJSON_PrintUnformatted(value);
     if (kv_set(device, str, os_strlen(str)) < 0)
-        SigmaLogError("save device %s failed", device);
+        SigmaLogError(0, 0, "save device %s failed", device);
     os_free(str);
+}
+
+const char *sld_iterator(SLDIterator *it)
+{
+    if (!it)
+        return 0;
+    if (!it->devices)
+    {
+        it->devices = kv_acquire("devices", &(it->size));
+        it->pos = 0;
+    }
+    if (!it->devices)
+        return 0;
+    if (it->pos >= it->size)
+    {
+        if (it->devices)
+            kv_free(it->devices);
+        it->devices = 0;
+        return 0;
+    }
+    char *ret = it->devices + it->pos;
+    it->pos += os_strlen(ret) + 1;
+    return ret;
+}
+
+void sld_iterator_release(SLDIterator *it)
+{
+    if (!it)
+        return;
+    if (it->devices)
+        kv_free(it->devices);
+    it->devices = 0;
 }
 
 void sld_create(const char *id, const char *name, const char *category, const char *connections[], cJSON *attributes, cJSON *capabilities)
@@ -280,7 +312,7 @@ void sld_profile_report(const char *device, const char *id)
     cJSON *ep = sld_load(device);
     if (!ep)
     {
-        SigmaLogError("device %d not found.", device);
+        SigmaLogError(0, 0, "device %d not found.", device);
         if (gateway)
             kv_free(gateway);
         return;
@@ -331,7 +363,7 @@ void sld_profile_reply(void)
     cJSON *ep = sld_load(device);
     if (!ep)
     {
-        SigmaLogError("device %d not found.", device);
+        SigmaLogError(0, 0, "device %d not found.", device);
         if (gateway)
             kv_free(gateway);
         return;
@@ -378,27 +410,27 @@ void sld_property_save(const char *device, cJSON *value)
     sprintf(property, "properties_%s", device);
     char *str = cJSON_PrintUnformatted(value);
     if (kv_set(property, str, os_strlen(str)) < 0)
-        SigmaLogError("save device property %s failed", device);
+        SigmaLogError(0, 0, "save device property %s failed", device);
     os_free(str);
 }
 
-void sld_property_set(const char *device, const char *ns, const char *name, cJSON *value)
+void sld_property_set(const char *device, const char *type, const char *name, cJSON *value)
 {
     cJSON *properties = sld_property_load(device);
 
     cJSON *property = properties->child;
     while (property)
     {
-        if (!os_strcmp(cJSON_GetObjectItem(property, "namespace")->valuestring, ns) &&
-            !os_strcmp(cJSON_GetObjectItem(property, "name")->valuestring, name))
+        if (!os_strcmp(cJSON_GetObjectItem(property, "type")->valuestring, type) &&
+            !os_strcmp(cJSON_GetObjectItem(property, "property")->valuestring, name))
             break;
         property = property->next;
     }
     if (!property)
     {
         property = cJSON_CreateObject();
-        cJSON_AddItemToObject(property, "namespace", cJSON_CreateString(ns));
-        cJSON_AddItemToObject(property, "name", cJSON_CreateString(name));
+        cJSON_AddItemToObject(property, "type", cJSON_CreateString(type));
+        cJSON_AddItemToObject(property, "property", cJSON_CreateString(name));
         cJSON_AddItemToArray(properties, property);
     }
     cJSON_DeleteItemFromObject(property, "value");
@@ -417,7 +449,7 @@ void sld_property_report(const char *device, const char *opcode)
     cJSON *properties = sld_property_load(device);
     if (!properties)
     {
-        SigmaLogError("device %d property not found.", device);
+        SigmaLogError(0, 0, "device %d property not found.", device);
         if (gateway)
             kv_free(gateway);
         return;

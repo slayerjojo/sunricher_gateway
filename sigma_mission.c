@@ -51,7 +51,7 @@ SigmaMission *sigma_mission_create(SigmaMission *mission, uint8_t type, SigmaMis
     SigmaMission *m = (SigmaMission *)os_malloc(sizeof(SigmaMission) + extends);
     if (!m)
     {
-        SigmaLogError("out of memory");
+        SigmaLogError(0, 0, "out of memory");
         return 0;
     }
     os_memset(m, 0, sizeof(SigmaMission) + extends);

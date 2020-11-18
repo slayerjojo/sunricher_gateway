@@ -7,7 +7,7 @@
 #include "MQTTAsync.h"
 #include "cJSON.h"
 
-#define MQTT_SERVER "tcp://52.82.41.140:1883"
+#define MQTT_SERVER "tcp://testing.smartcodecloud.com:1883"
 
 enum {
     STATE_SSLM_IDLE = 0,
@@ -29,7 +29,7 @@ static void connlost(void *context, char *cause)
 {
 	MQTTAsync client = (MQTTAsync)context;
 
-    SigmaLogError("disconnected.%s", cause ? cause : "");
+    SigmaLogError(0, 0, "disconnected.%s", cause ? cause : "");
 
     MQTTAsync_destroy(&_client);
 
@@ -44,18 +44,18 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *me
     do {
         uint8_t *packet = sll_headless_unpack(message->payload, &(message->payloadlen), _key);
     
-        SigmaLogAction("topic:%s message:%s", topicName, (char *)packet);
+        SigmaLogAction(0, 0, "topic:%s message:%s", topicName, (char *)packet);
 
         msg = cJSON_Parse((const char *)packet);
         if (!msg)
         {
-            SigmaLogError("json parse error.raw:%s", (const char *)(packet + 1));
+            SigmaLogError(0, 0, "json parse error.raw:%s", (const char *)(packet + 1));
             break;
         }
         cJSON *header = cJSON_GetObjectItem(msg, "header");
         if (!header)
         {
-            SigmaLogError("packet header error.raw:%s", (const char *)(packet + 1));
+            SigmaLogError(0, 0, "packet header error.raw:%s", (const char *)(packet + 1));
             break;
         }
         cJSON_AddItemToObject(msg, "user", cJSON_CreateString(_server));
@@ -82,7 +82,7 @@ static void onSubscribe(void* context, MQTTAsync_successData* response)
 {
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)context;
 
-    SigmaLogAction("MQTTAsync_subscribe %s successed.", ctx->list + ctx->pos);
+    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s successed.", ctx->list + ctx->pos);
     
     ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
     ctx->state = 0;
@@ -92,7 +92,7 @@ static void onSubscribeFailure(void* context, MQTTAsync_failureData* response)
 {
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)context;
 
-    SigmaLogAction("MQTTAsync_subscribe %s failed.(code:%d)", ctx->list + ctx->pos, response->code);
+    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s failed.(code:%d)", ctx->list + ctx->pos, response->code);
     
     ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
     ctx->state = 0;
@@ -124,7 +124,7 @@ static int mission_mqtt_subscribe(SigmaMission *mission)
         int ret = 0;
         if ((ret = MQTTAsync_subscribe(_client, ctx->list + ctx->pos, 0, &opts)) != MQTTASYNC_SUCCESS)
         {
-            SigmaLogError("MQTTAsync_subscribe %s failed.(ret:%d)", ctx->list + ctx->pos, ret);
+            SigmaLogError(0, 0, "MQTTAsync_subscribe %s failed.(ret:%d)", ctx->list + ctx->pos, ret);
             ctx->state = 0;
             ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
         }
@@ -144,14 +144,14 @@ static void onConnect(void* context, MQTTAsync_successData* response)
 {
 	MQTTAsync client = (MQTTAsync)context;
 
-    SigmaLogAction("connected.");
+    SigmaLogAction(0, 0, "connected.");
     _state = STATE_SSLM_CONNECTED;
 
     uint32_t size = 0;
     char *list = sll_client_list(&size);
     if (!list)
     {
-        SigmaLogError("empty client list.");
+        SigmaLogError(0, 0, "empty client list.");
         return;
     }
 
@@ -167,7 +167,7 @@ static void onConnect(void* context, MQTTAsync_successData* response)
         mission = sigma_mission_create(mission, MISSION_TYPE_MQTT_SUBSCRIBE, mission_mqtt_subscribe, sizeof(SigmaMissionMqttSubscribe));
         if (!mission)
         {
-            SigmaLogError("out of memory");
+            SigmaLogError(0, 0, "out of memory");
             os_free(list);
             return;
         }
@@ -185,7 +185,7 @@ static void onConnectFailure(void* context, MQTTAsync_failureData* response)
 {
 	MQTTAsync client = (MQTTAsync)context;
 
-	SigmaLogAction("connect failed.(ret:%d)", response->code);
+	SigmaLogAction(0, 0, "connect failed.(ret:%d)", response->code);
 
     _state = STATE_SSLM_RECONNECT;
     _timer = os_ticks();
@@ -209,7 +209,7 @@ void sslm_update(void)
         int ret = MQTTAsync_create(&_client, MQTT_SERVER, _client_id, MQTTCLIENT_PERSISTENCE_NONE, NULL);
         if (ret != MQTTASYNC_SUCCESS)
         {
-            SigmaLogError("MQTTAsync_create failed.(ret:%d)", ret);
+            SigmaLogError(0, 0, "MQTTAsync_create failed.(ret:%d)", ret);
             _state = STATE_SSLM_RECONNECT;
             _timer = os_ticks();
             return;
@@ -217,7 +217,7 @@ void sslm_update(void)
         ret = MQTTAsync_setCallbacks(_client, _client, connlost, msgarrvd, NULL);
         if (ret != MQTTASYNC_SUCCESS)
         {
-            SigmaLogError("MQTTAsync_setCallbacks failed.(ret:%d)", ret);
+            SigmaLogError(0, 0, "MQTTAsync_setCallbacks failed.(ret:%d)", ret);
             MQTTAsync_destroy(&_client);
             _state = STATE_SSLM_RECONNECT;
             _timer = os_ticks();
@@ -233,7 +233,7 @@ void sslm_update(void)
         ret = MQTTAsync_connect(_client, &opts);
         if (ret != MQTTASYNC_SUCCESS)
         {
-            SigmaLogError("MQTTAsync_connect failed.(ret:%d)", ret);
+            SigmaLogError(0, 0, "MQTTAsync_connect failed.(ret:%d)", ret);
             MQTTAsync_destroy(&_client);
             _state = STATE_SSLM_RECONNECT;
             _timer = os_ticks();
@@ -256,7 +256,7 @@ void sslm_start(const char *id)
     _client_id = os_malloc(os_strlen(id) + 1);
     if (!_client_id)
     {
-        SigmaLogError("out of memory");
+        SigmaLogError(0, 0, "out of memory");
         return;
     }
     os_strcpy(_client_id, id);
@@ -278,13 +278,15 @@ void sslm_report(uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 
         pos += os_strlen(clients + pos) + 1;
     }
+    if (clients)
+        os_free(clients);
 }
 
 void onSendFailure(void* context, MQTTAsync_failureData* response)
 {
 	MQTTAsync client = (MQTTAsync)context;
 
-    SigmaLogError("send failed.(token:%d code:%d)", response->token, response->code);
+    SigmaLogError(0, 0, "send failed.(token:%d code:%d)", response->token, response->code);
 
     MQTTAsync_destroy(_client);
     
@@ -296,17 +298,17 @@ void onSend(void* context, MQTTAsync_successData* response)
 {
 	MQTTAsync client = (MQTTAsync)context;
 
-    SigmaLogAction("send successed.(token:%d)", response->token);
+    SigmaLogAction(0, 0, "send successed.(token:%d)", response->token);
 }
 
 void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
-    SigmaLogAction("send to %s(seq:%u size:%d)", id, seq, size);
+    SigmaLogAction(0, 0, "send to %s(seq:%u size:%d)", id, seq, size);
 
     uint8_t key[32] = {0};
     if (sll_client_key(id, key) < 0)
     {
-        SigmaLogError("client %s not found", id);
+        SigmaLogError(0, 0, "client %s not found", id);
         return;
     }
 	
@@ -333,6 +335,6 @@ void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, u
 
     int ret = 0;
 	if ((ret = MQTTAsync_sendMessage(_client, id, &msg, &opts)) != MQTTASYNC_SUCCESS)
-		SigmaLogError("MQTTAsync_sendMessage failed.(ret:%d)", ret);
+		SigmaLogError(0, 0, "MQTTAsync_sendMessage failed.(ret:%d)", ret);
     os_free(packet);
 }

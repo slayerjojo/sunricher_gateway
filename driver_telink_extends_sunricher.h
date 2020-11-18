@@ -158,44 +158,104 @@ typedef enum {
     SR_PREINSTALL_LIGHT_MODE_RESERVE = 0x00, //保留
 }SRPreinstallLightMode;
 
-int tmes_device_type_set(uint16_t dst, SRCategory category);
-int tmes_device_type_get(uint16_t dst, SRCategory *category, uint8_t *group_count, uint32_t *start);
+typedef enum {
+    SR_SWITCH_TYPE_ONOFF = 1,
+    SR_SWITCH_TYPE_PUSH,
+    SR_SWITCH_TYPE_3WAY,
+}SRSwitchType;
+
+typedef struct {
+    uint8_t type;
+    uint8_t enable;
+    union {
+        uint8_t scene;
+        struct {
+            uint8_t bright;
+            uint8_t rgb[3];
+            uint8_t ct;
+            uint16_t duration;
+        }color;
+        struct {
+            uint8_t value;
+            uint16_t duration;
+        }onoff;
+    };
+}SRSunSetting;
+
+int tmes_device_type_write(uint16_t dst, SRCategory category);
+int tmes_device_type(uint16_t dst, SRCategory *category, uint8_t *group_count, uint32_t *start);
 int tmes_device_type_clear(uint16_t dst);
 int tmes_device_mac(uint16_t dst, uint16_t *category, uint8_t *mac);
-int tmes_light_mode_get(uint16_t dst, uint8_t *speed, uint8_t *temperature, uint8_t *mode, uint8_t *id, uint8_t *internal);
+int tmes_light_mode(uint16_t dst, uint8_t *speed, uint8_t *temperature, uint8_t *global, uint8_t *mode, uint8_t *id, uint8_t *internal);
 int tmes_light_mode_custom_list(uint16_t dst, uint8_t *ids, uint8_t *size);
-int tmes_light_mode_custom_get(uint16_t dst, uint8_t id, uint8_t *color, uint8_t *count);
+int tmes_light_mode_custom(uint16_t dst, uint8_t id, uint8_t *color, uint8_t *count);
 int tmes_light_mode_custom_add(uint16_t dst, uint8_t id, uint8_t idx, uint8_t *color);
 int tmes_light_mode_custom_delete(uint16_t dst, uint8_t id);
-int tmes_light_mode_global_set(uint16_t dst, uint8_t mode, uint8_t enable);
-int tmes_light_mode_speed_set(uint16_t dst, uint8_t speed);
-int tmes_light_mode_temperature_set(uint16_t dst, uint8_t temperature);
-int tmes_light_mode_preinstall_set(uint16_t dst, SRPreinstallLightMode preinstall);
+int tmes_light_mode_global_write(uint16_t dst, SRTransition transition, uint8_t enable);
+int tmes_light_mode_speed_write(uint16_t dst, uint8_t speed);
+int tmes_light_mode_temperature_write(uint16_t dst, uint8_t temperature);
+int tmes_light_mode_preinstall_write(uint16_t dst, SRPreinstallLightMode preinstall);
 int tmes_light_mode_custom_run(uint16_t dst, SRTransition transition);
-int tmes_light_scene_list(uint16_t dst, void (*rsp)(int ret, uint16_t dst, uint8_t *scenes, uint8_t size));
-int tmes_light_scene_get(uint16_t dst, uint8_t idx, uint8_t scene);
+int tmes_light_scene_list(uint16_t dst, uint8_t *scenes, uint8_t *size);
+int tmes_light_scene(uint16_t dst, uint8_t idx, uint8_t *scene);
 int tmes_light_scene_save(uint16_t dst, uint8_t scene, uint16_t delay);
 int tmes_light_scene_delete(uint16_t dst, uint8_t scene);
 int tmes_light_scene_run(uint16_t dst, uint8_t scene);
 int tmes_light_channel_enable(uint16_t dst, uint8_t channels, uint8_t mask);
 int tmes_light_channel_action(uint16_t dst, uint8_t channel, uint8_t action, uint8_t flag);
 int tmes_light_channel_speed_action(uint16_t dst, uint8_t action);
-int tmes_light_preinstall_stop(void);
-int tmes_light_custom_stop(void);
-int tmes_light_preinstall_run(uint16_t group, SRPreinstallLightMode mode, uint8_t global, uint8_t speed, uint8_t temperature);
-int tmes_light_custom_run(uint16_t group, uint8_t mode, SRTransition transition, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_preinstall_stop(uint16_t dst);
+int tmes_light_custom_stop(uint16_t dst);
+int tmes_light_preinstall_run(uint16_t dst, SRPreinstallLightMode mode, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_custom_run(uint16_t dst, uint8_t mode, SRTransition transition, uint8_t global, uint8_t speed, uint8_t temperature);
 int tmes_light_move_to_level(uint16_t dst, uint8_t bright, uint8_t r, uint8_t g, uint8_t b, uint8_t ct, uint16_t time);
-int tmes_light_pwm_set(uint16_t dst, uint16_t freq);
-int tmes_light_pwm_get(uint16_t dst, uint16_t *freq);
-int tmes_light_pwm_deadtime_set(uint16_t dst, uint8_t interval);
-int tmes_light_pwm_deadtime_get(uint16_t dst, uint8_t interval);
-int tmes_light_bright_min_set(uint16_t dst, uint8_t percent);
-int tmes_light_bright_min_get(uint16_t dst, uint8_t *percent);
-int tmes_light_bright_gamma_set(uint16_t dst, uint8_t gamma);
-int tmes_light_bright_gamma_get(uint16_t dst, uint8_t *gamma);
-int tmes_light_onoff_duration_set(uint16_t dst, uint16_t duration);
-int tmes_light_onoff_duration_get(uint16_t dst, uint16_t *duration);
+int tmes_light_pwm_write(uint16_t dst, uint16_t freq);
+int tmes_light_pwm(uint16_t dst, uint16_t *freq);
+int tmes_light_pwm_deadtime_write(uint16_t dst, uint8_t interval);
+int tmes_light_pwm_deadtime(uint16_t dst, uint8_t *interval);
+int tmes_light_bright_min_write(uint16_t dst, uint8_t percent);
+int tmes_light_bright_min(uint16_t dst, uint8_t *percent);
+int tmes_light_bright_gamma_write(uint16_t dst, uint8_t gamma);
+int tmes_light_bright_gamma(uint16_t dst, uint8_t *gamma);
+int tmes_light_onoff_duration_write(uint16_t dst, uint16_t duration);
+int tmes_light_onoff_duration(uint16_t dst, uint16_t *duration);
 int tmes_device_status_error(uint16_t dst, uint8_t *error);
 int tmes_device_status_running(uint16_t dst, uint8_t *bright, uint8_t *rgb, uint8_t *temperature, uint8_t *tail);
+int tmes_light_status_power(uint16_t dst, SRCategory *category, uint16_t *voltage);
+int tmes_switch_type_write(uint16_t dst, SRSwitchType type);
+int tmes_switch_type(uint16_t dst, SRSwitchType *type);
+int tmes_uart_tx_type_write(uint16_t dst, uint8_t type);
+int tmes_uart_tx_type(uint16_t dst, uint8_t *type);
+int tmes_light_schedule_write(uint16_t dst, uint8_t hour, uint8_t minute, uint8_t luminance, uint8_t *rgb, uint8_t ct, uint8_t cten);
+int tmes_light_schedule_start(uint16_t dst);
+int tmes_light_schedule_stop(uint16_t dst);
+int tmes_light_schedule(uint16_t dst, uint8_t idx, uint8_t *hour, uint8_t *minute, uint8_t *bright, uint8_t *rgb, uint8_t *ct, uint8_t *cten);
+int tmes_light_preinstall_run_32(uint32_t group, SRPreinstallLightMode mode, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_custom_run_32(uint32_t group, uint8_t mode, SRTransition transition, uint8_t global, uint8_t speed, uint8_t temperature);
+int tmes_light_group_get_32(uint16_t dst, uint8_t *enable, uint32_t *group);
+int tmes_device_pair_enable(uint16_t dst);
+int tmes_device_return_to_factory(uint16_t dst);
+int tmes_remoter_group_write(uint16_t dst, uint8_t map, uint8_t *mac);
+int tmes_remoter_group_unset(uint16_t dst, uint8_t map, uint8_t *mac);
+int tmes_button_group_write(uint16_t dst, uint8_t map, uint8_t *mac);
+int tmes_button_group_unset(uint16_t dst, uint8_t map, uint8_t *mac);
+int tmes_sensor_group_write(uint16_t dst, uint8_t sensor, uint8_t *group);
+int tmes_sensor_group_unset(uint16_t dst, uint8_t sensor);
+int tmes_sensor_group(uint16_t dst, uint8_t sensor, uint32_t *group);
+int tmes_light_button_function_write(uint16_t dst, uint8_t type, uint8_t key, uint8_t press, uint8_t func, uint8_t switch_model);
+int tmes_linkage_condition_check_write(uint8_t dst, uint8_t id, uint8_t enable, uint8_t condition, uint8_t *parameters, uint8_t size);
+int tmes_gps_write(uint16_t dst, uint32_t longitude, uint32_t latitude);
+int tmes_gps(uint16_t dst, uint32_t *longitude, uint32_t *latitude);
+int tmes_sun_onoff_write(uint16_t dst, uint8_t sunrise, uint8_t enable, uint8_t onoff, uint16_t duration);
+int tmes_sun_scene_standard_write(uint16_t dst, uint8_t sunrise, uint8_t enable, uint8_t scene);
+int tmes_sun_scene_custom_write(uint16_t dst, uint8_t sunrise, uint8_t enable, uint8_t scene);
+int tmes_sun_color_write(uint16_t dst, uint8_t sunrise, uint8_t enable, uint8_t bright, uint8_t *rgb, uint8_t ct, uint16_t duration);
+int tmes_sun(uint16_t dst, uint8_t sunrise, SRSunSetting *setting);
+int tmes_sun_clear(uint16_t dst, uint8_t sunrise);
+int tmes_sun_enable(uint16_t dst, uint8_t sunrise);
+int tmes_sun_disable(uint16_t dst, uint8_t sunrise);
+int tmes_local_time_zone_write(uint16_t dst, uint8_t east, uint8_t hour, uint8_t minute);
+int tmes_local_time_zone(uint16_t dst, uint8_t *east, uint8_t *now_hour, uint8_t *now_minute, uint8_t *sunrise_hour, uint8_t *sunrise_minute, uint8_t *sunset_hour, uint8_t *sunset_minute);
+int tmes_button_control(uint16_t dst, uint8_t type, uint8_t key, uint32_t id);
 
 #endif

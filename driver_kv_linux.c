@@ -12,14 +12,14 @@ void linux_kv_delete(const char *key)
     remove(path);
 }
 
-int linux_kv_set(const char *key, const uint8_t *value, uint32_t size)
+int linux_kv_set(const char *key, const void *value, uint32_t size)
 {
     char path[128] = {0};
     sprintf(path, _root, key);
     FILE *fp = fopen(path, "wb");
     if (!fp)
     {
-        SigmaLogError("create file %s failed.", path);
+        SigmaLogError(0, 0, "create file %s failed.", path);
         return -1;
     }
     fwrite(value, size, 1, fp);
@@ -40,14 +40,25 @@ uint32_t linux_kv_size(const char *key)
     return size;
 }
 
-int linux_kv_get(const char *key, uint8_t *value, uint32_t size)
+int linux_kv_exist(const char *key)
+{
+    char path[128] = {0};
+    sprintf(path, _root, key);
+    FILE *fp = fopen(path, "rb");
+    if (!fp)
+        return 0;
+    fclose(fp);
+    return 1;
+}
+
+int linux_kv_get(const char *key, void *value, uint32_t size)
 {
     char path[128] = {0};
     sprintf(path, _root, key);
     FILE *fp = fopen(path, "rb");
     if (!fp)
     {
-        SigmaLogError("file %s not found.", path);
+        SigmaLogError(0, 0, "file %s not found.", path);
         return -1;
     }
     fseek(fp, 0, SEEK_END);
@@ -73,7 +84,7 @@ uint8_t *linux_kv_acquire(const char *key, uint32_t *size)
     FILE *fp = fopen(path, "rb");
     if (!fp)
     {
-        SigmaLogError("file %s not found.", path);
+        SigmaLogError(0, 0, "file %s not found.", path);
         if (extends)
             return os_malloc(extends);
         return 0;
@@ -86,7 +97,7 @@ uint8_t *linux_kv_acquire(const char *key, uint32_t *size)
     uint8_t *value = os_malloc(length + 1 + extends);
     if (!value)
     {
-        SigmaLogError("out of memory");
+        SigmaLogError(0, 0, "out of memory");
         fclose(fp);
         return 0;
     }

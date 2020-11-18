@@ -23,7 +23,16 @@ typedef struct _usart_runtime
     uint8_t usart;
 }UsartRuntime;
 
+typedef struct _usart_path
+{
+    struct _usart_path *_next;
+
+    uint8_t usart;
+    char path[];
+}UsartPath;
+
 static UsartRuntime *_runtimes = 0;
+static UsartPath *_paths = 0;
 
 void linux_usart_init(void)
 {
@@ -34,23 +43,45 @@ void linux_usart_update(void)
 {
 }
 
+void linux_usart_path(uint8_t usart, const char *path)
+{
+    UsartPath *up = malloc(sizeof(UsartPath) + strlen(path) + 1);
+    if (!up)
+    {
+        SigmaLogError("usart:%d path:%s", usart, path);
+        return;
+    }
+    up->usart = usart;
+    strcpy(up->path, path);
+    up->_next = _paths;
+    _paths = up;
+}
+
 int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity, uint8_t stopbits)
 {
     int fp = -1;
+    UsartPath *up = _paths;
     if (0 == usart)
     {
-        fp = open("/dev/ttyS3", O_RDWR);
+        while (up && up->usart != usart)
+            up = up->_next;
+        if (!up)
+        {
+            SigmaLogHalt(0, 0, "serial path not found");
+            return -1;
+        }
+        fp = open(up->path, O_RDWR);
     }
     if (-1 == fp)
     {
-        SigmaLogError("serial open error");
+        SigmaLogHalt(0, 0, "serial open error");
         return -1;
     }
 
     struct termios opt;
     if (tcgetattr(fp, &opt))
     {
-        SigmaLogError("tcgetattr error");
+        SigmaLogHalt(0, 0, "tcgetattr error");
         return -1;
     }
     if (115200 == baud)
@@ -60,7 +91,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
     }
     else
     {
-        SigmaLogError("baud %u not support", baud);
+        SigmaLogHalt(0, 0, "baud %u not support", baud);
         return -1;
     }
     tcflush(fp, TCIOFLUSH);
@@ -75,7 +106,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
             opt.c_cflag |= CS8;
             break;   
         default:    
-            SigmaLogError("databits %d not support", databit);
+            SigmaLogHalt(0, 0, "databits %d not support", databit);
             return -1;  
     }
     switch (parity) 
@@ -102,7 +133,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
             opt.c_cflag &= ~CSTOPB;
             break;  
         default:   
-            SigmaLogError("parity '%d' Unsupported", parity);    
+            SigmaLogHalt(0, 0, "parity '%d' Unsupported", parity);    
             return -1;  
     }
     /* 设置停止位*/  
@@ -115,7 +146,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
             opt.c_cflag |= CSTOPB;  
             break;
         default:    
-            SigmaLogError("stopbits %d Unsupported", stopbits);  
+            SigmaLogHalt(0, 0, "stopbits %d Unsupported", stopbits);  
             return -1; 
     }
     tcflush(fp, TCIFLUSH);
@@ -129,14 +160,14 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
     opt.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|INLCR|IGNCR|ICRNL|IXON);
     if (tcsetattr(fp, TCSANOW, &opt))
     {
-        SigmaLogError("tcsetattr error");
+        SigmaLogHalt(0, 0, "tcsetattr error");
         return -1;
     }
 
     UsartRuntime *runtime = (UsartRuntime *)calloc(sizeof(UsartRuntime), 1);
     if (!runtime)
     {
-        SigmaLogError("out of memory");
+        SigmaLogHalt(0, 0, "out of memory");
         return -1;
     }
     runtime->fp = fp;
@@ -148,7 +179,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
     flags |= O_NONBLOCK;
     fcntl(fp, F_SETFL, flags);
 
-    SigmaLogAction("open usart (baud:%u databit:%u) successed.", baud, databit);
+    SigmaLogAction(0, 0, "open usart (fp:%d path:%s baud:%u databit:%u) successed.", runtime->fp, up->path, baud, databit);
 
     return 1;
 }
@@ -185,11 +216,23 @@ int linux_usart_write(uint8_t usart, const uint8_t *buffer, uint16_t size)
         runtime = runtime->_next;
     }
     if (!runtime)
+    {
+        SigmaLogError(0, 0, "usart %d not found", usart);
         return 0;
-    return write(runtime->fp, buffer, size);
+    }
+    int ret = write(runtime->fp, buffer, size);
+    if (ret < 0)
+    {
+        if (EAGAIN == errno || EWOULDBLOCK == errno)
+            return 0;
+        SigmaLogError(0, 0, "failed.fp:%d ret:%d %s(%u)", runtime->fp, ret, strerror(errno), errno);
+    }
+    if (ret)
+        SigmaLogDebug(buffer, ret, "write: ");
+    return ret;
 }
 
-int linux_usart_read(uint8_t usart, const uint8_t *buffer, uint16_t size)
+int linux_usart_read(uint8_t usart, uint8_t *buffer, uint16_t size)
 {
     UsartRuntime *runtime = _runtimes;
     while (runtime)
@@ -199,8 +242,20 @@ int linux_usart_read(uint8_t usart, const uint8_t *buffer, uint16_t size)
         runtime = runtime->_next;
     }
     if (!runtime)
+    {
+        SigmaLogError(0, 0, "usart %d not found", usart);
         return 0;
-    return read(runtime->fp, buffer, size);
+    }
+    int ret = read(runtime->fp, buffer, size);
+    if (ret < 0)
+    {
+        if (EAGAIN == errno || EWOULDBLOCK == errno)
+            return 0;
+        SigmaLogError(0, 0, "failed.fp:%d ret:%d %s(%u)", runtime->fp, ret, strerror(errno), errno);
+    }
+    if (ret > 0)
+        SigmaLogDebug(buffer, ret, "recv: ");
+    return ret;
 }
 
 #endif

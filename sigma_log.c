@@ -8,6 +8,10 @@
 #include "hex.h"
 #endif
 
+const char *_block_debug_funcs[] = {
+    "test"
+};
+
 static uint8_t color_hash(const char *s)
 {
     uint32_t hash = 0;
@@ -23,6 +27,15 @@ static uint8_t color_hash(const char *s)
 void sigma_log_println(const char *file, uint32_t line, const char *func, unsigned char level, const void *buffer, size_t size, const char *fmt, ...)
 {
     uint32_t i = 0;
+
+    if (level == LOG_LEVEL_DEBUG)
+    {
+        for (i = 0; i < sizeof(_block_debug_funcs)/sizeof(_block_debug_funcs[0]); i++)
+        {
+            if (!strncmp(_block_debug_funcs[i], func, strlen(_block_debug_funcs[i])))
+                return;
+        }
+    }
 
     file += strlen(__FILE__) - strlen("sigma_log.c");
 
@@ -66,7 +79,7 @@ void sigma_log_println(const char *file, uint32_t line, const char *func, unsign
     va_end(args);
 
     for (i = 0; i < size; i++)
-        printf("%02x", *(((unsigned char *)buffer) + i));
+        printf("%02x ", *(((unsigned char *)buffer) + i));
 
     printf("\033[0m\n");
 

@@ -21,7 +21,7 @@ void *sigma_event_listen(uint8_t event, SigmaEventHandler handler, uint32_t size
     SigmaEventListener *listener = (SigmaEventListener *)os_malloc(sizeof(SigmaEventListener) + size);
     if (!listener)
     {
-        SigmaLogError("out of memory");
+        SigmaLogError(0, 0, "out of memory");
         return 0;
     }
     os_memset(listener, 0, sizeof(SigmaEventListener) + size);

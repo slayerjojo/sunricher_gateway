@@ -25,18 +25,16 @@ enum {
 #define DEBUG
 #endif
 
-#define SigmaLogError(...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ERROR, 0, 0, __VA_ARGS__)
-#define SigmaLogAction(...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ACTION, 0, 0, __VA_ARGS__)
-#define SigmaLogDump(level, buffer, size, ...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, (level), (buffer), (size), __VA_ARGS__)
+#define SigmaLogError(buffer, size, ...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ERROR, buffer, size, __VA_ARGS__)
+#define SigmaLogAction(buffer, size, ...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ACTION, buffer, size, __VA_ARGS__)
 
-#define SigmaLogHalt(...) do {                                                                      \
-    sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ERROR, 0, 0, __VA_ARGS__); \
-    while(1);                                                                                       \
-    exit(EXIT_FAILURE);                                                                             \
+#define SigmaLogHalt(buffer, size, ...) do {                                                                \
+    sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_ERROR, buffer, size, __VA_ARGS__); \
+    exit(EXIT_FAILURE);                                                                                     \
 } while(0);
 
 #ifdef DEBUG
-#define SigmaLogDebug(...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_DEBUG, 0, 0, __VA_ARGS__)
+#define SigmaLogDebug(buffer, size, ...) sigma_log_println(__FILE__, __LINE__, __PRETTY_FUNCTION__, LOG_LEVEL_DEBUG, buffer, size, __VA_ARGS__)
 #else
 #define SigmaLogDebug(...)
 #endif

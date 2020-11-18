@@ -4,9 +4,10 @@
 #include "env.h"
 
 void linux_kv_delete(const char *key);
-int linux_kv_set(const char *key, const uint8_t *value, uint32_t size);
+int linux_kv_set(const char *key, const void *value, uint32_t size);
 uint32_t linux_kv_size(const char *key);
-int linux_kv_get(const char *key, uint8_t *value, uint32_t size);
+int linux_kv_exist(const char *key);
+int linux_kv_get(const char *key, void *value, uint32_t size);
 uint8_t *linux_kv_acquire(const char *key, uint32_t *size);
 void linux_kv_free(void *v);
 

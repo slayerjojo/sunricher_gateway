@@ -42,3 +42,14 @@ uint8_t *hex2bin(uint8_t *bin, const char *hex, uint16_t size)
     }
     return bin;
 }
+
+void binrev(uint8_t *bin, uint32_t size)
+{
+    uint32_t i;
+    for (i = 0; i < size / 2; i++)
+    {
+        uint8_t tmp = bin[i];
+        bin[i] = bin[size - i - 1];
+        bin[size - i - 1] = tmp;
+    }
+}

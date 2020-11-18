@@ -40,9 +40,10 @@ void sigma_console_update(void)
         _state = SC_STATE_CONSOLE_ACCEPT;
         if (_fp_server < 0)
         {
-            SigmaLogError("console create failed");
+            SigmaLogError(0, 0, "console create failed");
             _state = SC_STATE_CONSOLE_INIT;
         }
+        SigmaLogAction(0, 0, "console listen %u", _port);
     }
     if (SC_STATE_CONSOLE_ACCEPT == _state)
     {
@@ -51,12 +52,12 @@ void sigma_console_update(void)
         _fp_client = network_tcp_accept(_fp_server, ip, &port);
         if (_fp_client < -1)
         {
-            SigmaLogError("console accept failed");
+            SigmaLogError(0, 0, "console accept failed");
             _state = SC_STATE_CONSOLE_INIT;
         }
         else if (_fp_client >= 0)
         {
-            SigmaLogAction("console accepted");
+            SigmaLogAction(0, 0, "console accepted");
             _size = 0;
             _state = SC_STATE_CONSOLE_SERVICE;
         }
@@ -70,7 +71,7 @@ void sigma_console_update(void)
             return;
         if (ret < 0)
         {
-            SigmaLogError("console connection broken");
+            SigmaLogError(0, 0, "console connection broken");
             network_tcp_close(_fp_client);
             _state = SC_STATE_CONSOLE_ACCEPT;
             return;
@@ -99,13 +100,13 @@ void sigma_console_update(void)
             }
             if (!os_strcmp(start, "exit") || !os_strcmp(start, "quit"))
             {
-                SigmaLogAction("console connection broken");
+                SigmaLogAction(0, 0, "console connection broken");
                 network_tcp_close(_fp_client);
                 _state = SC_STATE_CONSOLE_ACCEPT;
             }
             else if (_handler)
             {
-                SigmaLogAction("console:%s", start);
+                SigmaLogAction(0, 0, "console:%s", start);
                 _handler(start, parameters, count);
             }
             start = end + 1;
@@ -120,7 +121,7 @@ void sigma_console_write(const char *fmt, ...)
 {
     if (SC_STATE_CONSOLE_SERVICE != _state)
     {
-        SigmaLogError("console state error");
+        SigmaLogError(0, 0, "console state error");
         return;
     }
     char output[1024] = {0};
@@ -139,10 +140,10 @@ void sigma_console_close(void)
 {
     if (SC_STATE_CONSOLE_SERVICE != _state)
     {
-        SigmaLogError("console state error");
+        SigmaLogError(0, 0, "console state error");
         return;
     }
-    SigmaLogError("console connection close");
+    SigmaLogError(0, 0, "console connection close");
     network_tcp_close(_fp_client);
     _state = SC_STATE_CONSOLE_ACCEPT;
     return;

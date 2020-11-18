@@ -71,14 +71,14 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
     cJSON *payload = cJSON_GetObjectItem(packet, "payload");
     if (!payload)
     {
-        SigmaLogError("payload not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+        SigmaLogError(0, 0, "payload not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
         return;
     }
 
     cJSON *user = cJSON_GetObjectItem(payload, "userId");
     if (!user)
     {
-        SigmaLogError("userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+        SigmaLogError(0, 0, "userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
         return;
     }
     char owner[33] = {0};
@@ -191,7 +191,7 @@ void ssll_update(void)
     {
         uint8_t *buffer = os_malloc(LANWORK_BUFFER);
         if (!buffer)
-            SigmaLogError("out of memory");
+            SigmaLogError(0, 0, "out of memory");
         if (buffer)
         {
             ret = network_udp_recv(_bcast.fp, buffer, LANWORK_BUFFER, ip, &port);
@@ -207,7 +207,7 @@ void ssll_update(void)
                     int size = sll_parser(buffer, ret);
                     if (size <= 0)
                     {
-                        SigmaLogDump(LOG_LEVEL_ERROR, buffer, ret, "packet will be discarded because it is incomplete or wrong format.raw:");
+                        SigmaLogError(buffer, ret, "packet will be discarded because it is incomplete or wrong format.raw:");
                         break;
                     }
                     SRLinkHeader *packet = sll_unpack(buffer, ret, _bcast.key);
@@ -216,30 +216,30 @@ void ssll_update(void)
                     msg = cJSON_Parse((const char *)(packet + 1));
                     if (!msg)
                     {
-                        SigmaLogError("json parse error.raw:%s", (const char *)(packet + 1));
+                        SigmaLogError(0, 0, "json parse error.raw:%s", (const char *)(packet + 1));
                         break;
                     }
                     cJSON *header = cJSON_GetObjectItem(msg, "header");
                     if (!header)
                     {
-                        SigmaLogError("packet header error.raw:%s", (const char *)(packet + 1));
+                        SigmaLogError(0, 0, "packet header error.raw:%s", (const char *)(packet + 1));
                         break;
                     }
                     cJSON *idx = cJSON_GetObjectItem(header, "messageIndex");
                     if (!idx || (((unsigned int)idx->valueint) & 0xff) != packet->seq)
                     {
-                        SigmaLogDump(LOG_LEVEL_ERROR, buffer, ret, "packet messageIndex not match.raw:");
+                        SigmaLogError(buffer, ret, "packet messageIndex not match.raw:");
                         break;
                     }
                     cJSON *name = cJSON_GetObjectItem(header, "name");
                     if (!name)
                     {
-                        SigmaLogError("packet name error.raw:%s", (const char *)(packet + 1));
+                        SigmaLogError(0, 0, "packet name error.raw:%s", (const char *)(packet + 1));
                         break;
                     }
                     if (os_strcmp(name->valuestring, OPCODE_DISCOVER_GATEWAY))
                     {
-                        SigmaLogError("packet name is not allow.raw:%s", (const char *)(packet + 1));
+                        SigmaLogError(0, 0, "packet name is not allow.raw:%s", (const char *)(packet + 1));
                         break;
                     }
                     char ips[12 + 4] = {0};
@@ -284,7 +284,7 @@ void ssll_update(void)
         {
             LinkSessionLanwork *session = os_malloc(sizeof(LinkSessionLanwork));
             if (!session)
-                SigmaLogError("out of memory");
+                SigmaLogError(0, 0, "out of memory");
             if (session)
             {
                 os_memset(session, 0, sizeof(LinkSessionLanwork));
@@ -303,7 +303,7 @@ void ssll_update(void)
     {
         if (os_ticks_from(session->timer) > os_ticks_ms(LANWORK_IDLE_INTERVAL))
         {
-            SigmaLogDump(LOG_LEVEL_ERROR, session->id, 16, "fp:%d heartbeat stoped, id:");
+            SigmaLogError(session->id, 16, "fp:%d heartbeat stoped, id:");
             break;
         }
         if (session->packets)
@@ -312,7 +312,7 @@ void ssll_update(void)
             ret = network_tcp_send(session->fp, min->buffer + min->pos, min->size - min->pos);
             if (ret < 0)
             {
-                SigmaLogDump(LOG_LEVEL_ERROR, session->id, 16, "fp:%d send failed.", session->fp);
+                SigmaLogError(session->id, 16, "fp:%d send failed.", session->fp);
                 break;
             }
             else if (ret > 0)
@@ -331,7 +331,7 @@ void ssll_update(void)
             session->buffer = os_malloc(sizeof(SRLinkHeader));
             if (!session->buffer)
             {
-                SigmaLogError("out of memory");
+                SigmaLogError(0, 0, "out of memory");
                 break;
             }
             session->pos = 0;
@@ -342,7 +342,7 @@ void ssll_update(void)
             int ret = network_tcp_recv(session->fp, session->buffer + session->pos, session->size - session->pos);
             if (ret < 0)
             {
-                SigmaLogDump(LOG_LEVEL_ERROR, session->id, 16, "fp:%d recv failed. session:", session->fp);
+                SigmaLogError(session->id, 16, "fp:%d recv failed. session:", session->fp);
                 break;
             }
             else if (ret > 0)
@@ -353,7 +353,7 @@ void ssll_update(void)
                     ret = sll_parser(session->buffer, session->size);
                     if (ret < 0)
                     {
-                        SigmaLogDump(LOG_LEVEL_ERROR, session->buffer, session->size, "packet will be discarded because format is wrong.raw:");
+                        SigmaLogError(session->buffer, session->size, "packet will be discarded because format is wrong.raw:");
                         break;
                     }
                     else if (!ret)
@@ -365,7 +365,7 @@ void ssll_update(void)
                             uint8_t *buffer = os_malloc(session->size + 1);
                             if (!buffer)
                             {
-                                SigmaLogError("out of memory");
+                                SigmaLogError(0, 0, "out of memory");
                                 break;
                             }
                             os_memcpy(buffer, session->buffer, sizeof(SRLinkHeader));
@@ -383,19 +383,19 @@ void ssll_update(void)
                             msg = cJSON_Parse((const char *)(packet + 1));
                             if (!msg)
                             {
-                                SigmaLogError("json parse error.raw:%s", (const char *)(packet + 1));
+                                SigmaLogError(0, 0, "json parse error.raw:%s", (const char *)(packet + 1));
                                 break;
                             }
                             cJSON *header = cJSON_GetObjectItem(msg, "header");
                             if (!header)
                             {
-                                SigmaLogError("packet header error.raw:%s", (const char *)(packet + 1));
+                                SigmaLogError(0, 0, "packet header error.raw:%s", (const char *)(packet + 1));
                                 break;
                             }
                             cJSON *idx = cJSON_GetObjectItem(header, "messageIndex");
                             if (!idx || (((unsigned int)idx->valueint) & 0xff) != packet->seq)
                             {
-                                SigmaLogDump(LOG_LEVEL_ERROR, session->buffer, session->size, "packet messageIndex not match.raw:");
+                                SigmaLogError(session->buffer, session->size, "packet messageIndex not match.raw:");
                                 break;
                             }
                             if (!session->auth)
@@ -403,12 +403,12 @@ void ssll_update(void)
                                 cJSON *name = cJSON_GetObjectItem(header, "name");
                                 if (!name)
                                 {
-                                    SigmaLogError("packet name error.raw:%s", (const char *)(packet + 1));
+                                    SigmaLogError(0, 0, "packet name error.raw:%s", (const char *)(packet + 1));
                                     break;
                                 }
                                 if (os_strcmp(name->valuestring, OPCODE_BIND_GATEWAY))
                                 {
-                                    SigmaLogError("packet name is not allow.raw:%s", (const char *)(packet + 1));
+                                    SigmaLogError(0, 0, "packet name is not allow.raw:%s", (const char *)(packet + 1));
                                     break;
                                 }
                                 cJSON_AddItemToObject(msg, "fp", cJSON_CreateNumber(session->fp));
@@ -472,7 +472,7 @@ void ssll_auth(int fp, const char *id, uint8_t *key)
     }
     if (!session)
     {
-        SigmaLogError("session not found.(fp:%d)", fp);
+        SigmaLogError(0, 0, "session not found.(fp:%d)", fp);
         return;
     }
     os_strcpy(session->id, id);
@@ -490,7 +490,7 @@ void ssll_bcast(uint8_t seq, const void *buffer, uint32_t size)
     {
         LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
         if (!packet)
-            SigmaLogError("out of memory");
+            SigmaLogError(0, 0, "out of memory");
         if (packet)
         {
             packet->pos = 0;
@@ -521,7 +521,7 @@ void ssll_report(uint8_t seq, const void *buffer, uint32_t size)
             {
                 LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
                 if (!packet)
-                    SigmaLogError("out of memory");
+                    SigmaLogError(0, 0, "out of memory");
                 if (packet)
                 {
                     packet->pos = 0;
@@ -548,7 +548,7 @@ void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
     uint8_t key[32] = {0};
     if (sll_client_key(id, key) < 0)
     {
-        SigmaLogError("client %s not found", id);
+        SigmaLogError(0, 0, "client %s not found", id);
         return;
     }
 
@@ -562,7 +562,7 @@ void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
             {
                 LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
                 if (!packet)
-                    SigmaLogError("out of memory");
+                    SigmaLogError(0, 0, "out of memory");
                 if (packet)
                 {
                     packet->pos = 0;

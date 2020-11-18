@@ -10,6 +10,7 @@ extern "C"
 
 char *bin2hex(char *hex, const uint8_t *bin, uint16_t size);
 uint8_t *hex2bin(uint8_t *bin, const char *hex, uint16_t size);
+void binrev(uint8_t *bin, uint32_t size);
 
 #ifdef __cplusplus
 }

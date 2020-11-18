@@ -27,7 +27,7 @@ int linux_network_tcp_server(uint16_t port)
     int fp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fp < 0)
     {
-        SigmaLogError("errno:%d error:%s", errno, strerror(errno));
+        SigmaLogError(0, 0, "errno:%d error:%s", errno, strerror(errno));
         return -1;
     }
 
@@ -44,13 +44,13 @@ int linux_network_tcp_server(uint16_t port)
 
     if (bind(fp, (struct sockaddr *)&saLocal, sizeof(struct sockaddr_in)) < 0)
     {
-        SigmaLogError("errno:%d error:%s", errno, strerror(errno));
+        SigmaLogError(0, 0, "errno:%d error:%s", errno, strerror(errno));
         close(fp);
         return -1;
     }
     if (listen(fp, 5) < 0)
     {
-        SigmaLogError("errno:%d error:%s", errno, strerror(errno));
+        SigmaLogError(0, 0, "errno:%d error:%s", errno, strerror(errno));
         close(fp);
         return -1;
     }
@@ -66,7 +66,7 @@ int linux_network_tcp_accept(int fp, uint8_t *ip, uint16_t *port)
     {
         if (EAGAIN == errno || EINTR == errno || EWOULDBLOCK == errno)
             return -1;
-        SigmaLogError("error ret:%d(%s)", conn, strerror(errno));
+        SigmaLogError(0, 0, "error ret:%d(%s)", conn, strerror(errno));
         return -2;
     }
     *port = sa.sin_port;
@@ -82,7 +82,7 @@ int linux_network_tcp_client(const char *host, uint16_t port)
     int fp = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (fp < 0)
     {
-        SigmaLogError("create socket failed:(%d)%s", errno, strerror(errno));
+        SigmaLogError(0, 0, "create socket failed:(%d)%s", errno, strerror(errno));
         return -1;
     }
 
@@ -93,7 +93,7 @@ int linux_network_tcp_client(const char *host, uint16_t port)
     struct hostent *ht = gethostbyname(host);
     if (!ht)
     {
-        SigmaLogError("gethostbyname %s failed.(%s)", host, strerror(errno));
+        SigmaLogError(0, 0, "gethostbyname %s failed.(%s)", host, strerror(errno));
         return -2;
     }
     memcpy(&sa.sin_addr, ht->h_addr, ht->h_length);
@@ -110,7 +110,7 @@ int linux_network_tcp_client(const char *host, uint16_t port)
         if (EINPROGRESS != errno && errno != EALREADY && errno != EISCONN)
         {
             close(fp);
-            SigmaLogError("%d connect failed. %s", fp, strerror(errno));
+            SigmaLogError(0, 0, "%d connect failed. %s", fp, strerror(errno));
             return -1;
         }
     }
@@ -134,14 +134,14 @@ int linux_network_tcp_connected(int fp)
     int ret = select(fp + 1, NULL, &fsw, &fse, (struct timeval *)&tv);
     if (ret < 0)
     {
-        SigmaLogError("fp:%d errno:%u error:%s", fp, errno, strerror(errno));
+        SigmaLogError(0, 0, "fp:%d errno:%u error:%s", fp, errno, strerror(errno));
         return -1;
     }
     if (!ret)
         return 0;
     if (FD_ISSET(fp, &fse))
     {
-        SigmaLogError("fp:%d errno:%u error:%s", fp, errno, strerror(errno));
+        SigmaLogError(0, 0, "fp:%d errno:%u error:%s", fp, errno, strerror(errno));
         return -1;
     }
     if (!FD_ISSET(fp, &fsw))
@@ -151,12 +151,12 @@ int linux_network_tcp_connected(int fp)
     socklen_t length = sizeof(int);
     if (getsockopt(fp, SOL_SOCKET, SO_ERROR, (void *)&error, &length) < 0)
     {
-        SigmaLogError("fp:%d errno:%u error:%s", fp, errno, strerror(errno));
+        SigmaLogError(0, 0, "fp:%d errno:%u error:%s", fp, errno, strerror(errno));
         return -1;
     }
     if (error)
     {
-        SigmaLogError("errno:%d error:%s", error, strerror(error));
+        SigmaLogError(0, 0, "errno:%d error:%s", error, strerror(error));
         return -1;
     }
     return 1;
@@ -167,14 +167,14 @@ int linux_network_tcp_recv(int fp, void *buffer, uint32_t size)
     int ret = recv(fp, buffer, size, MSG_DONTWAIT);
     if (!ret)
     {
-        SigmaLogError("%d closed by remote", fp);
+        SigmaLogError(0, 0, "%d closed by remote", fp);
         return -1;
     }
     if (ret < 0)
     {
         if (ENOTCONN == errno || EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError("%d closed by error(%u:%s)", fp, errno, strerror(errno));
+        SigmaLogError(0, 0, "%d closed by error(%u:%s)", fp, errno, strerror(errno));
         return -1;
     }
     return ret;
@@ -185,14 +185,14 @@ int linux_network_tcp_send(int fp, const void *buffer, uint32_t size)
     int ret = send(fp, buffer, size, 0);
     if (!ret)
     {
-        SigmaLogError("%d closed by remote", fp);
+        SigmaLogError(0, 0, "%d closed by remote", fp);
         return -1;
     }
     if (ret < 0)
     {
         if(EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError("%d closed by error(%s)", fp, strerror(errno));
+        SigmaLogError(0, 0, "%d closed by error(%s)", fp, strerror(errno));
         return -1;
     }
     return ret;
@@ -232,14 +232,14 @@ int linux_network_udp_recv(int fp, void *buffer, uint32_t size, uint8_t *ip, uin
     ssize_t ret = recvfrom(fp, buffer, size, MSG_DONTWAIT, (struct sockaddr *)&sa, &len);
     if (!ret)
     {
-        SigmaLogError("%d closed by remote", fp);
+        SigmaLogError(0, 0, "%d closed by remote", fp);
         return -1;
     }
     if (ret < 0)
     {
         if (EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError("%d closed by error(%u:%s)", fp, errno, strerror(errno));
+        SigmaLogError(0, 0, "%d closed by error(%u:%s)", fp, errno, strerror(errno));
         return -1;
     }
     *port = ntohs(sa.sin_port);
@@ -256,14 +256,14 @@ int linux_network_udp_send(int fp, const void *buffer, uint32_t size, const uint
     int ret = sendto(fp, buffer, size, 0, (const struct sockaddr *)&sa, (socklen_t)sizeof(struct sockaddr_in));
     if (!ret)
     {
-        SigmaLogError("%d closed by remote", fp);
+        SigmaLogError(0, 0, "%d closed by remote", fp);
         return -1;
     }
     if (ret < 0)
     {
         if (EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError("%d closed by error(%s)", fp, strerror(errno));
+        SigmaLogError(0, 0, "%d closed by error(%s)", fp, strerror(errno));
         return -1;
     }
     return ret;
