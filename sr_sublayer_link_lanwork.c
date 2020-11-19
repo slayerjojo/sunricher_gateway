@@ -13,7 +13,7 @@
 #define LANWORK_TCP_PORT 8889
 
 #define LANWORK_BUFFER (1024 * 4)
-#define LANWORK_IDLE_INTERVAL 30000
+#define LANWORK_IDLE_INTERVAL 60000
 
 typedef struct _link_lanwork_packet {
     struct _link_lanwork_packet *_next;
@@ -65,59 +65,112 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         return;
 
     cJSON *name = cJSON_GetObjectItem(header, "name");
-    if (os_strcmp(name->valuestring, OPCODE_BIND_GATEWAY))
-        return;
-
-    cJSON *payload = cJSON_GetObjectItem(packet, "payload");
-    if (!payload)
+    if (!os_strcmp(name->valuestring, OPCODE_BIND_GATEWAY))
     {
-        SigmaLogError(0, 0, "payload not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
-        return;
-    }
-
-    cJSON *user = cJSON_GetObjectItem(payload, "userId");
-    if (!user)
-    {
-        SigmaLogError(0, 0, "userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
-        return;
-    }
-    char owner[33] = {0};
-    int retOwner = sll_client_owner(owner);
-
-    uint8_t key[32] = {0};
-    int ret = sll_client_key(user->valuestring, key);
-    if (ret > 0)
-    {
-        ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
-    }
-    else if (_timer_bind && os_ticks_from(_timer_bind) < os_ticks_ms(10000))
-    {
-        cJSON *userKey = cJSON_GetObjectItem(payload, "userKey");
-        if (userKey)
+        cJSON *payload = cJSON_GetObjectItem(packet, "payload");
+        if (!payload)
         {
-            hex2bin(key, userKey->valuestring, 32);
-            sll_client_add(user->valuestring, key);
+            SigmaLogError(0, 0, "payload not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+            return;
         }
-    }
 
-    uint8_t seq = sll_seq();
-    cJSON *resp = cJSON_CreateObject();
-    header = cJSON_CreateObject();
-    cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
-    cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_RESP));
-    cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
-    cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
-    cJSON_AddItemToObject(resp, "header", header);
-    payload = cJSON_CreateObject();
-    cJSON_AddItemToObject(payload, "bindResult", cJSON_CreateString(ret < 0 ? "UNBOUND" : "OK"));
-    cJSON_AddItemToObject(payload, "isOwner", cJSON_CreateBool(!os_strcmp(owner, user->valuestring)));
-    cJSON_AddItemToObject(payload, "userId", cJSON_CreateString(user->valuestring));
-    cJSON_AddItemToObject(resp, "payload", payload);
-    char *rsp = cJSON_PrintUnformatted(resp);
-    ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
-    os_free(rsp);
-    cJSON_Delete(resp);
+        cJSON *user = cJSON_GetObjectItem(payload, "userId");
+        if (!user)
+        {
+            SigmaLogError(0, 0, "userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+            return;
+        }
+        char owner[33] = {0};
+        int retOwner = sll_client_owner(owner);
+
+        uint8_t key[32] = {0};
+        int ret = sll_client_key(user->valuestring, key);
+        if (ret > 0)
+        {
+            ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
+        }
+        else if (_timer_bind && os_ticks_from(_timer_bind) < os_ticks_ms(10000))
+        {
+            cJSON *userKey = cJSON_GetObjectItem(payload, "userKey");
+            if (userKey)
+            {
+                hex2bin(key, userKey->valuestring, 32);
+                sll_client_add(user->valuestring, key);
+                ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
+                ret = 16;
+            }
+        }
+
+        uint8_t seq = sll_seq();
+        cJSON *resp = cJSON_CreateObject();
+        header = cJSON_CreateObject();
+        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
+        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+        cJSON_AddItemToObject(resp, "header", header);
+        payload = cJSON_CreateObject();
+        cJSON_AddItemToObject(payload, "bindResult", cJSON_CreateString(ret < 0 ? "UNBOUND" : "OK"));
+        cJSON_AddItemToObject(payload, "isOwner", cJSON_CreateBool(!os_strcmp(owner, user->valuestring)));
+        cJSON_AddItemToObject(payload, "userId", cJSON_CreateString(user->valuestring));
+        cJSON_AddItemToObject(resp, "payload", payload);
+        char *rsp = cJSON_PrintUnformatted(resp);
+        if (ret < 0)
+            ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
+        else
+            ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
+        os_free(rsp);
+        cJSON_Delete(resp);
+    }
+    else if (!os_strcmp(name->valuestring, OPCODE_BOUND_USERS_QUERY))
+    {
+        cJSON *user = cJSON_GetObjectItem(packet, "user");
+        if (!user)
+        {
+            SigmaLogError(0, 0, "userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+            return;
+        }
+        char owner[33] = {0};
+        int retOwner = sll_client_owner(owner);
+
+        uint8_t key[32] = {0};
+        int ret = sll_client_key(user->valuestring, key);
+        if (ret < 0)
+        {
+            SigmaLogError(0, 0, "user not bind(user:%d).", user->valuestring);
+            return;
+        }
+        
+        uint8_t seq = sll_seq();
+        cJSON *resp = cJSON_CreateObject();
+        header = cJSON_CreateObject();
+        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BOUND_USERS_REPORT));
+        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+        cJSON_AddItemToObject(resp, "header", header);
+        cJSON *users = cJSON_CreateArray();
+
+        uint32_t size = 0;
+        char *client = sll_client_list(&size);
+        uint32_t pos = 0;
+        while (pos < size)
+        {
+            cJSON *c = cJSON_CreateObject();
+            cJSON_AddItemToObject(c, "isOwner", cJSON_CreateBool(!os_strcmp(client, owner)));
+            cJSON_AddItemToObject(c, "userId", cJSON_CreateString(client + pos));
+            cJSON_AddItemToArray(users, c);
+            pos += os_strlen(client + pos) + 1;
+        }
+
+        cJSON_AddItemToObject(resp, "users", users);
+        char *rsp = cJSON_PrintUnformatted(resp);
+        ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
+        os_free(rsp);
+        cJSON_Delete(resp);
+    }
 }
 
 static void handle_gateway_bind(void *ctx, uint8_t event, void *msg, int size)
@@ -246,6 +299,9 @@ void ssll_update(void)
                     sprintf(ips, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
                     cJSON_AddItemToObject(msg, "ip", cJSON_CreateString(ips));
                     cJSON_AddItemToObject(msg, "port", cJSON_CreateNumber(port));
+
+                    SigmaLogAction(0, 0, "bcast recv:%s", (const char *)(packet + 1));
+
                     sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
                 } while (0);
                 if (msg)
@@ -417,7 +473,11 @@ void ssll_update(void)
                             {
                                 cJSON_AddItemToObject(msg, "user", cJSON_CreateString(session->id));
                                 cJSON_AddItemToObject(msg, "fp", cJSON_CreateNumber(session->fp));
+                                session->timer = os_ticks();
                             }
+
+                            SigmaLogAction(0, 0, "session %s:%d recv:%s", session->id, session->fp, (const char *)(packet + 1));
+
                             sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
                         } while (0);
                         if (msg)
@@ -459,6 +519,8 @@ void ssll_update(void)
 void ssll_bind(void)
 {
     _timer_bind = os_ticks();
+
+    SigmaLogAction(0, 0, "timer for binding gateway is started");
 }
 
 void ssll_auth(int fp, const char *id, uint8_t *key)
@@ -478,6 +540,8 @@ void ssll_auth(int fp, const char *id, uint8_t *key)
     os_strcpy(session->id, id);
     os_memcpy(session->key, key, 16);
 
+    SigmaLogAction(0, 0, "session is authed(id:%s)", session->id);
+
     sigma_event_dispatch(EVENT_TYPE_CLIENT_AUTH, (char *)id, os_strlen(id));
 }
 
@@ -493,6 +557,8 @@ void ssll_bcast(uint8_t seq, const void *buffer, uint32_t size)
             SigmaLogError(0, 0, "out of memory");
         if (packet)
         {
+            os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
             packet->pos = 0;
             packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
             packet->buffer = (uint8_t *)header;
@@ -524,6 +590,8 @@ void ssll_report(uint8_t seq, const void *buffer, uint32_t size)
                     SigmaLogError(0, 0, "out of memory");
                 if (packet)
                 {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
                     packet->pos = 0;
                     packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
                     packet->buffer = (uint8_t *)header;
@@ -565,6 +633,45 @@ void ssll_send(const char *id, uint8_t seq, const void *buffer, uint32_t size)
                     SigmaLogError(0, 0, "out of memory");
                 if (packet)
                 {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
+                    packet->pos = 0;
+                    packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
+                    packet->buffer = (uint8_t *)header;
+                    packet->_next = 0;
+
+                    LinkLanworkPacket *last = session->packets;
+                    while (last && last->_next)
+                        last = last->_next;
+                    if (last)
+                        last->_next = packet;
+                    else
+                        session->packets = packet;
+                }
+            }
+            break;
+        }
+        session = session->_next;
+    }
+}
+
+void ssll_raw(int fp, uint8_t *key, uint8_t seq, const void *buffer, uint32_t size)
+{
+    LinkSessionLanwork *session = _sessions;
+    while (session)
+    {
+        if (session->fp == fp)
+        {
+            SRLinkHeader *header = sll_pack(seq, buffer, size, key);
+            if (header)
+            {
+                LinkLanworkPacket *packet = os_malloc(sizeof(LinkLanworkPacket));
+                if (!packet)
+                    SigmaLogError(0, 0, "out of memory");
+                if (packet)
+                {
+                    os_memset(packet, 0, sizeof(LinkLanworkPacket));
+
                     packet->pos = 0;
                     packet->size = sizeof(SRLinkHeader) + network_ntohl(header->length);
                     packet->buffer = (uint8_t *)header;

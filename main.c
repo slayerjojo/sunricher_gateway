@@ -2,6 +2,8 @@
 #include "sr_layer_link.h"
 #include "sr_sublayer_link_mqtt.h"
 #include "sr_layer_device.h"
+#include "sr_layer_scene.h"
+#include "sr_layer_room.h"
 #include "interface_os.h"
 #include "driver_usart_linux.h"
 #include "driver_telink_mesh.h"
@@ -318,6 +320,8 @@ int main(int argc, char *argv[])
 
     sll_init();
     sld_init();
+    slr_init();
+    sls_init();
 
     linux_usart_path(0, _serial);
 
@@ -325,6 +329,8 @@ int main(int argc, char *argv[])
     {
         sll_update();
         sld_update();
+        slr_update();
+        sls_update();
 
         sigma_console_update();
         sigma_mission_update();

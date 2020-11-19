@@ -10,5 +10,9 @@ int linux_kv_exist(const char *key);
 int linux_kv_get(const char *key, void *value, uint32_t size);
 uint8_t *linux_kv_acquire(const char *key, uint32_t *size);
 void linux_kv_free(void *v);
+void linux_kv_list_add(const char *key, const char *item);
+void linux_kv_list_remove(const char *key, const char *item);
+const char *linux_kv_list_iterator(const char *key, void **iterator);
+void linux_kv_list_iterator_release(void *iterator);
 
 #endif

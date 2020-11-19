@@ -12,5 +12,9 @@
 #define kv_exist linux_kv_exist
 #define kv_acquire linux_kv_acquire
 #define kv_free linux_kv_free
+#define kv_list_add linux_kv_list_add
+#define kv_list_remove linux_kv_list_remove
+#define kv_list_iterator(k, it) linux_kv_list_iterator(k, it)
+#define kv_list_iterator_release linux_kv_list_iterator_release
 
 #endif

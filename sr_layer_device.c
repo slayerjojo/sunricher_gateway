@@ -35,7 +35,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         return;
     }
 
-    if (!os_strcmp(name->valuestring, OPCODE_DEVICE_ADD_OR_UPDATE))
+    if (!os_strcmp(name->valuestring, OPCODE_ADD_OR_UPDATE))
     {
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
@@ -58,6 +58,8 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
             return;
         }
 
+        SigmaLogAction(0, 0, "handle device add or update");
+
         cJSON *item = ep->child;
         while (item)
         {
@@ -73,7 +75,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         sld_profile_report(epid->valuestring, 0);
         cJSON_Delete(device);
     }
-    else if (!os_strcmp(name->valuestring, OPCODE_DEVICE_DELETE))
+    else if (!os_strcmp(name->valuestring, OPCODE_DELETE))
     {
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
@@ -88,6 +90,8 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
             SigmaLogError(0, 0, "endpointId not found");
             return;
         }
+
+        SigmaLogAction(0, 0, "handle device delete");
 
         sld_delete(epid->valuestring);
     }
@@ -134,6 +138,8 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
             SigmaLogError(0, 0, "endpointId not found");
             return;
         }
+
+        SigmaLogAction(0, 0, "handle device state report");
 
         sld_property_report(epid->valuestring, OPCODE_DEVICE_STATE_REPORT);
     }
@@ -190,38 +196,6 @@ void sld_save(const char *device, cJSON *value)
     os_free(str);
 }
 
-const char *sld_iterator(SLDIterator *it)
-{
-    if (!it)
-        return 0;
-    if (!it->devices)
-    {
-        it->devices = kv_acquire("devices", &(it->size));
-        it->pos = 0;
-    }
-    if (!it->devices)
-        return 0;
-    if (it->pos >= it->size)
-    {
-        if (it->devices)
-            kv_free(it->devices);
-        it->devices = 0;
-        return 0;
-    }
-    char *ret = it->devices + it->pos;
-    it->pos += os_strlen(ret) + 1;
-    return ret;
-}
-
-void sld_iterator_release(SLDIterator *it)
-{
-    if (!it)
-        return;
-    if (it->devices)
-        kv_free(it->devices);
-    it->devices = 0;
-}
-
 void sld_create(const char *id, const char *name, const char *category, const char *connections[], cJSON *attributes, cJSON *capabilities)
 {
     cJSON *device = cJSON_CreateObject();
@@ -240,22 +214,8 @@ void sld_create(const char *id, const char *name, const char *category, const ch
     cJSON_AddItemToObject(device, "capabilities", cJSON_Duplicate(capabilities, 1));
     sld_save(id, device);
 
-    int size = os_strlen(id) + 1;
-    char *devices = kv_acquire("devices", &size);
-    int pos = 0;
-    while (pos < size)
-    {
-        if (!os_strcmp(devices + pos, id))
-            break;
-        pos += os_strlen(devices + pos) + 1;
-    }
-    if (pos >= size)
-    {
-        os_strcpy(devices + size, id);
-        kv_set("devices", devices, size + os_strlen(id) + 1);
-    }
+    kv_list_add("devices", id);
 
-    sld_profile_report(id, 0);
     cJSON_Delete(device);
 }
 
@@ -263,34 +223,14 @@ void sld_delete(const char *id)
 {
     kv_delete(id);
 
-    int size = 0;
-    char *devices = kv_acquire("devices", &size);
-    int pos = 0;
-    while (pos < size)
-    {
-        if (!os_strcmp(devices + pos, id))
-            break;
-        pos += os_strlen(devices + pos) + 1;
-    }
-    if (pos >= size)
-    {
-        if (size > os_strlen(id) + 1)
-        {
-            os_memcpy(devices + pos, devices + pos + os_strlen(id) + 1, size - os_strlen(id) - 1);
-            kv_set("devices", devices, size - os_strlen(id) - 1);
-        }
-        else
-        {
-            kv_delete("devices");
-        }
-    }
+    kv_list_remove("devices", id);
 
     uint8_t seq = sll_seq();
     cJSON *packet = cJSON_CreateObject();
     cJSON *header = cJSON_CreateObject();
     cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
     cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DEVICE_DELETE_REPORT));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DELETE_REPORT));
     cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
     cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
     cJSON_AddItemToObject(packet, "header", header);
@@ -359,7 +299,7 @@ void sld_profile_reply(void)
     char *device = 0;
     char *gateway = 0;
     if (!device)
-        device = gateway = kv_acquire("gateway", 0);
+        device = gateway ;
     cJSON *ep = sld_load(device);
     if (!ep)
     {
@@ -374,10 +314,13 @@ void sld_profile_reply(void)
     cJSON *header = cJSON_CreateObject();
     cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
     cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_REPORT));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
     cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
     cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
     cJSON_AddItemToObject(packet, "header", header);
+
+    cJSON *payload = cJSON_CreateObject();
+    cJSON_AddItemToObject(payload, "mac", header);
 
     cJSON_AddItemToObject(packet, "endpoint", ep);
 

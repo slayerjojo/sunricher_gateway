@@ -1,4 +1,5 @@
 #include "sr_sublayer_device_gateway.h"
+#include "sr_layer_link.h"
 #include "sr_layer_device.h"
 #include "sr_sublayer_link_mqtt.h"
 #include "sr_opcode.h"
@@ -39,6 +40,16 @@ enum {
     STATE_GATEWAY_TELINK_MESH_CONFLICT,
 };
 
+const char *name_device(SRCategory category)
+{
+    return "SR BLE Light";
+}
+
+const char *name_category(SRCategory category)
+{
+    return "SR_LIGHT";
+}
+
 typedef struct _depot_device
 {
     struct _depot_device *_next;
@@ -59,16 +70,6 @@ typedef struct
     cJSON *whitelist;
     DepotDevice *devices;
 }ContextTelinkMeshAdd;
-
-const char *name_device(SRCategory category)
-{
-    return "SR BLE Light";
-}
-
-const char *name_category(SRCategory category)
-{
-    return "SR_LIGHT";
-}
 
 static int mission_telink_mesh_add(SigmaMission *mission)
 {
@@ -126,6 +127,21 @@ static int mission_telink_mesh_add(SigmaMission *mission)
     {
         if (ctx->whitelist)
             cJSON_Delete(ctx->whitelist);
+
+        uint8_t seq = sll_seq();
+        cJSON *packet = cJSON_CreateObject();
+        cJSON *header = cJSON_CreateObject();
+        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DEVICE_ADD_OR_UPDATE_REPORT));
+        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+        cJSON_AddItemToObject(packet, "header", header);
+
+        char *str = cJSON_PrintUnformatted(packet);
+        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT);
+        os_free(str);
+        cJSON_Delete(packet);
 
         SigmaLogDebug(0, 0, "mesh add device stoped.");
         return 1;
@@ -194,8 +210,8 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             if (ctx->stop || os_ticks_from(ctx->timer) > os_ticks_ms(3000))
             {
                 const char *device = 0;
-                SLDIterator it = {0};
-                while ((device = sld_iterator(&it)))
+                void *it = 0;
+                while ((device = kv_list_iterator("devices", &it)))
                 {
                     cJSON *ep = sld_load(device);
                     if (!ep)
@@ -225,7 +241,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                     ctx->map[addr->valueint / 8] |= 1 << (addr->valueint % 8);
                     cJSON_Delete(ep);
                 }
-                sld_iterator_release(&it);
+                kv_list_iterator_release(it);
 
                 ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
                 ctx->recuit = 0;
@@ -393,6 +409,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         cJSON_AddItemToObject(attributes, "category", cJSON_CreateNumber(category));
         cJSON *capabilities = cJSON_Parse("[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]");
         sld_create(id, name_device(category), name_category(category), connections, attributes, capabilities);
+        sld_profile_report(id, "AddOrUpdateReport");
 
         char sht[7 + 4 + 1] = {0};
         sprintf(sht, "tladdr_%04x", ctx->devices->addr);
@@ -407,6 +424,29 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
         ctx->recuit = 1;
     }
+
+    return 0;
+}
+
+typedef struct 
+{
+    uint32_t timer;
+    void *it;
+    char client[];
+}ContextDiscoverEndpoints;
+
+static int mission_discover_endpoints(SigmaMission *mission)
+{
+    ContextDiscoverEndpoints *ctx = sigma_mission_extends(mission);
+
+    if (os_ticks_from(ctx->timer) < 200)
+        return 0;
+    ctx->timer = os_ticks();
+
+    const char *device = kv_list_iterator("devices", &(ctx->it));
+    if (!device)
+        return 1;
+    sld_profile_report(device, ctx->client);
 
     return 0;
 }
@@ -500,7 +540,253 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
     }
     else if (!os_strcmp(name->valuestring, OPCODE_DISCOVER_GATEWAY))
     {
-        sld_profile_reply();
+        char *gateway = 0;
+        cJSON *ep = 0;
+        do
+        {
+            gateway = kv_acquire("gateway", 0);
+            if (!gateway)
+            {
+                SigmaLogError(0, 0, "gateway not found.");
+                break;
+            }
+
+            ep = sld_load(gateway);
+            if (!ep)
+            {
+                SigmaLogError(0, 0, "device %d not found.", gateway);
+                break;
+            }
+
+            uint8_t seq = sll_seq();
+            cJSON *packet = cJSON_CreateObject();
+            cJSON *header = cJSON_CreateObject();
+            cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+            cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+            cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_GATEWAY_RESP));
+            cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+            cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+            cJSON_AddItemToObject(packet, "header", header);
+
+            cJSON_AddItemToObject(packet, "endpoint", ep);
+
+            char *str = cJSON_PrintUnformatted(packet);
+
+            SigmaLogAction(0, 0, "response discover gateway: %s", str);
+
+            sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_BROADCAST);
+            os_free(str);
+            cJSON_Delete(packet);
+        }
+        while (0);
+        if (gateway)
+            kv_free(gateway);
+    }
+    else if (!os_strcmp(name->valuestring, OPCODE_DISCOVER_ENDPOINTS))
+    {
+        cJSON *user = cJSON_GetObjectItem(packet, "user");
+        if (!user)
+        {
+            SigmaLogError(0, 0, "unknown sender");
+            return;
+        }
+
+        ContextDiscoverEndpoints *ctx = 0;
+        SigmaMission *mission = 0;
+        SigmaMissionIterator it = {0};
+        while ((mission = sigma_mission_iterator(&it)))
+        {
+            if (MISSION_TYPE_DISCOVER_ENDPOINTS != mission->type)
+                continue;
+            ctx = sigma_mission_extends(mission);
+            if (os_strcmp(ctx->client, user->valuestring))
+                continue;
+            break;
+        }
+        if (mission)
+        {
+            kv_list_iterator_release(ctx->it);
+            sigma_mission_release(mission);
+        }
+        mission = sigma_mission_create(0, MISSION_TYPE_DISCOVER_ENDPOINTS, mission_discover_endpoints, sizeof(ContextDiscoverEndpoints) + os_strlen(user->valuestring) + 1);
+        if (!mission)
+        {
+            SigmaLogError(0, 0, "out of memory.");
+            return;
+        }
+        ctx = sigma_mission_extends(mission);
+        ctx->timer = os_ticks();
+        os_strcpy(ctx->client, user->valuestring);
+    }
+}
+
+typedef struct 
+{
+    uint8_t value;
+    char device[];
+}ContextPCOperate;
+
+static int mission_powercontroller_operate(SigmaMission *mission)
+{
+    ContextPCOperate *ctx = sigma_mission_extends(mission);
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
+    {
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
+    }
+
+    do
+    {
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
+        if (!attrs)
+        {
+            SigmaLogError(0, 0, "device %s not found", ctx->device);
+            break;
+        }
+
+        cJSON *addr = cJSON_GetObjectItem(attrs, "addr");
+        if (!addr)
+        {
+            SigmaLogError(0, 0, "device %s addr not found", ctx->device);
+            break;
+        }
+
+        int ret = telink_mesh_light_onoff(addr->valueint, ctx->value, 0);
+        if (!ret)
+            break;
+
+        if (ret > 0)
+        {
+            sld_property_set(ctx->device, "PowerController", "powerState", cJSON_CreateString(ctx->value ? "ON" : "OFF"));
+            sld_property_report(ctx->device, "ChangeReport");
+        }
+
+        cJSON_Delete(ep);
+
+        return 1;
+    }
+    while(0);
+
+    cJSON_Delete(ep);
+
+    return 0;
+}
+
+static void handle_device_powercontroller(void *ctx, uint8_t event, void *msg, int size)
+{
+    cJSON *packet = (cJSON *)msg;
+
+    cJSON *header = cJSON_GetObjectItem(packet, "header");
+    if (!header)
+    {
+        SigmaLogError(0, 0, "header not found.");
+        return;
+    }
+
+    cJSON *method = cJSON_GetObjectItem(header, "method");
+    if (!method || os_strcmp(method->valuestring, "Directive"))
+        return;
+
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
+    if (!ns || os_strcmp(ns->valuestring, "PowerController"))
+        return;
+
+    cJSON *name = cJSON_GetObjectItem(header, "name");
+    if (!name)
+    {
+        SigmaLogError(0, 0, "name not found.");
+        return;
+    }
+
+    if (!os_strcmp(name->valuestring, OPCODE_POWERCONTROLLER_TURNON))
+    {
+        cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
+        if (!ep)
+        {
+            SigmaLogError(0, 0, "endpoint not found.");
+            return;
+        }
+
+        cJSON *id = cJSON_GetObjectItem(ep, "endpointId");
+        if (!id)
+        {
+            SigmaLogError(0, 0, "endpoint.endpointId not found.");
+            return;
+        }
+
+        ContextPCOperate *ctx = 0;
+        SigmaMissionIterator it = {0};
+        SigmaMission *mission = 0;
+        while ((mission = sigma_mission_iterator(&it)))
+        {
+            if (MISSION_TYPE_DEVICE_POWERCONTROLLER_OPERATE == mission->type)
+                continue;
+            ctx = sigma_mission_extends(mission);
+            if (os_strcmp(ctx->device, id->valuestring))
+                continue;
+            break;
+        }
+        if (mission)
+            sigma_mission_release(mission);
+        mission = sigma_mission_create(
+            0, 
+            MISSION_TYPE_DEVICE_POWERCONTROLLER_OPERATE, 
+            mission_powercontroller_operate, 
+            sizeof(ContextPCOperate) + os_strlen(id->valuestring) + 1);
+        if (!mission)
+        {
+            SigmaLogError(0, 0, "out of memory");
+            return;
+        }
+        ctx = sigma_mission_extends(mission);
+        os_strcpy(ctx->device, id->valuestring);
+        ctx->value = 1;
+    }
+    else if (!os_strcmp(name->valuestring, OPCODE_POWERCONTROLLER_TURNOFF))
+    {
+        cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
+        if (!ep)
+        {
+            SigmaLogError(0, 0, "endpoint not found.");
+            return;
+        }
+
+        cJSON *id = cJSON_GetObjectItem(ep, "endpointId");
+        if (!id)
+        {
+            SigmaLogError(0, 0, "endpoint.endpointId not found.");
+            return;
+        }
+
+        ContextPCOperate *ctx = 0;
+        SigmaMissionIterator it = {0};
+        SigmaMission *mission = 0;
+        while ((mission = sigma_mission_iterator(&it)))
+        {
+            if (MISSION_TYPE_DEVICE_POWERCONTROLLER_OPERATE == mission->type)
+                continue;
+            ctx = sigma_mission_extends(mission);
+            if (os_strcmp(ctx->device, id->valuestring))
+                continue;
+            break;
+        }
+        if (mission)
+            sigma_mission_release(mission);
+        mission = sigma_mission_create(
+            0, 
+            MISSION_TYPE_DEVICE_POWERCONTROLLER_OPERATE, 
+            mission_powercontroller_operate, 
+            sizeof(ContextPCOperate) + os_strlen(id->valuestring) + 1);
+        if (!mission)
+        {
+            SigmaLogError(0, 0, "out of memory");
+            return;
+        }
+        ctx = sigma_mission_extends(mission);
+        os_strcpy(ctx->device, id->valuestring);
+        ctx->value = 0;
     }
 }
 
@@ -549,15 +835,19 @@ void ssdg_init(void)
 
         sld_create(id, "SR BLE Gateway", "SR_GATEWAY", connections, attrs, capabilities);
         kv_set("gateway", id, os_strlen(id));
+        
+        sld_profile_report(id, 0);
+
         cJSON_Delete(attrs);
         cJSON_Delete(capabilities);
-
+        
         gateway = kv_acquire("gateway", 0);
     }
     sslm_start(gateway);
     os_free(gateway);
 
     sigma_event_listen(EVENT_TYPE_PACKET, handle_gateway_discover, 0);
+    sigma_event_listen(EVENT_TYPE_PACKET, handle_device_powercontroller, 0);
 }
 
 void ssdg_update(void)
