@@ -85,8 +85,8 @@ enum
     STATE_TLM_REQUEST,
     STATE_TLM_RESPONSE,
     STATE_TLM_WAIT,
-
     STATE_TLM_PROVISION,
+    STATE_TLM_DELAY,
 
     STATE_TLMSM_NAME,
     STATE_TLMSM_WAIT_NAME,
@@ -932,6 +932,23 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
                 _packets = packet->_next;
             os_free(packet);
 
+            if (2 == effect)
+            {
+                _request->state = STATE_TLM_DELAY;
+                _timer = os_ticks();
+            }
+            else
+            {
+                os_free(_request);
+                _request = 0;
+                return 1;
+            }
+        }
+    }
+    if (STATE_TLM_DELAY == _request->state)
+    {
+        if (os_ticks_from(_timer) > os_ticks_ms(1000))
+        {
             os_free(_request);
             _request = 0;
             return 1;

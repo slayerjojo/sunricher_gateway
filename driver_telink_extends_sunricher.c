@@ -80,7 +80,7 @@ int tmes_device_type(uint16_t dst, SRCategory *category, uint8_t *group_count, u
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -139,7 +139,7 @@ int tmes_device_mac(uint16_t dst, uint16_t *category, uint8_t *mac)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -189,7 +189,7 @@ int tmes_light_mode(uint16_t dst, uint8_t *speed, uint8_t *temperature, uint8_t 
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -243,7 +243,7 @@ int tmes_light_mode_custom_list(uint16_t dst, uint8_t *ids, uint8_t *size)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -457,7 +457,7 @@ int tmes_light_scene_list(uint16_t dst, uint8_t *scenes, uint8_t *size)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         return -1;
     }
     ret = telink_mesh_extend_sr_read(dst, data, 4, 6);
@@ -510,7 +510,7 @@ int tmes_light_scene(uint16_t dst, uint8_t idx, uint8_t *scene)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         return -1;
     }
     ret = telink_mesh_extend_sr_read(dst, data, 4, 5);
@@ -699,7 +699,7 @@ int tmes_light_pwm(uint16_t dst, uint16_t *freq)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -759,7 +759,7 @@ int tmes_light_pwm_deadtime(uint16_t dst, uint8_t *interval)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -879,7 +879,7 @@ int tmes_light_bright_gamma(uint16_t dst, uint8_t *gamma)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -940,7 +940,7 @@ int tmes_light_onoff_duration(uint16_t dst, uint16_t *duration)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1036,7 +1036,7 @@ int tmes_switch_type(uint16_t dst, SRSwitchType *type)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1094,7 +1094,7 @@ int tmes_uart_tx_type(uint16_t dst, uint8_t *type)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1176,7 +1176,7 @@ int tmes_light_schedule(uint16_t dst, uint8_t idx, uint8_t *hour, uint8_t *minut
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1262,7 +1262,7 @@ int tmes_light_group_get_32(uint16_t dst, uint8_t *enable, uint32_t *group)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1396,7 +1396,7 @@ int tmes_sensor_group(uint16_t dst, uint8_t sensor, uint32_t *group)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1516,7 +1516,7 @@ int tmes_gps(uint16_t dst, uint32_t *longitude, uint32_t *latitude)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1617,7 +1617,7 @@ int tmes_sun(uint16_t dst, uint8_t sunrise, SRSunSetting *setting)
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;
@@ -1718,7 +1718,7 @@ int tmes_local_time_zone(uint16_t dst, uint8_t *east, uint8_t *now_hour, uint8_t
         return 0;
     if (os_ticks_from(_context->timer) > os_ticks_ms(1000))
     {
-        SigmaLogError(0, 0, "out of memory");
+        SigmaLogError(0, 0, "timeout");
         os_free(_context);
         _context = 0;
         return -1;

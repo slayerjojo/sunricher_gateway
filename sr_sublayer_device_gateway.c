@@ -51,7 +51,8 @@ typedef struct _depot_device
 
 typedef struct
 {
-    uint8_t stop;
+    uint8_t stop:1;
+    uint8_t recuit:1;
     uint8_t state;
     uint32_t timer;
     uint8_t map[32];
@@ -190,7 +191,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         }
         if (!ret)
         {
-            if (ctx->stop || os_ticks_from(ctx->timer) > os_ticks_ms(5000))
+            if (ctx->stop || os_ticks_from(ctx->timer) > os_ticks_ms(3000))
             {
                 const char *device = 0;
                 SLDIterator it = {0};
@@ -227,8 +228,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                 sld_iterator_release(&it);
 
                 ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
-                if (!ctx->devices)
-                    ctx->state = STATE_GATEWAY_TELINK_MESH_DISCOVER;
+                ctx->recuit = 0;
                 return 0;
             }
             return 0;
@@ -299,7 +299,9 @@ static int mission_telink_mesh_add(SigmaMission *mission)
     {
         if (!ctx->devices)
         {
-            ctx->state = STATE_GATEWAY_TELINK_MESH_RECRUIT;
+            ctx->state = STATE_GATEWAY_TELINK_MESH_DISCOVER;
+            if (ctx->recuit)
+                ctx->state = STATE_GATEWAY_TELINK_MESH_RECRUIT;
             return 0;
         }
 
@@ -343,7 +345,10 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             return 0;
         }
         ctx->devices->addr = ctx->devices->conflict;
-        ctx->state = STATE_GATEWAY_TELINK_MESH_PROFILE;
+        if (ctx->devices->inlist)
+            ctx->state = STATE_GATEWAY_TELINK_MESH_PROFILE;
+        else
+            ctx->state = STATE_GATEWAY_TELINK_MESH_KICKOUT;
         ctx->timer = os_ticks();
     }
     if (STATE_GATEWAY_TELINK_MESH_KICKOUT == ctx->state)
@@ -400,6 +405,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         ctx->devices = ctx->devices->_next;
         os_free(dd);
         ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
+        ctx->recuit = 1;
     }
 
     return 0;
