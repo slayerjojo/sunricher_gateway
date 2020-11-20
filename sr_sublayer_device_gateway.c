@@ -871,6 +871,7 @@ void ssdg_update(void)
             {
                 sld_property_set(id, "EndpointHealth", "connectivity", cJSON_CreateString(online ? "OK" : "OFFLINE"));
                 sld_property_set(id, "BrightnessController", "brightness", cJSON_CreateNumber(luminance));
+                sld_property_set(id, "PowerController", "powerState", cJSON_CreateNumber(!!luminance));
                 sld_property_report(id, "ChangeReport");
             }
         }

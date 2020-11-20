@@ -384,6 +384,29 @@ void sld_property_set(const char *device, const char *type, const char *name, cJ
     sld_property_report(device, OPCODE_DEVICE_CHANGE_REPORT);
 }
 
+cJSON *sld_property_get(const char *device, const char *type, const char *name)
+{
+    cJSON *properties = sld_property_load(device);
+
+    cJSON *property = properties->child;
+    while (property)
+    {
+        if (!os_strcmp(cJSON_GetObjectItem(property, "type")->valuestring, type) &&
+            !os_strcmp(cJSON_GetObjectItem(property, "property")->valuestring, name))
+            break;
+        property = property->next;
+    }
+    cJSON *ret = 0;
+    if (property)
+    {
+        ret = cJSON_GetObjectItem(property, "value");
+        if (ret)
+            ret = cJSON_Duplicate(ret, 1);
+    }
+    cJSON_Delete(properties);
+    return ret;
+}
+
 void sld_property_report(const char *device, const char *opcode)
 {
     char *gateway = 0;

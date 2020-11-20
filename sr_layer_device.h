@@ -15,6 +15,7 @@ void sld_delete(const char *device);
 void sld_profile_report(const char *device, const char *id);
 cJSON *sld_property_load(const char *device);
 void sld_property_set(const char *device, const char *type, const char *property, cJSON *value);
+cJSON *sld_property_get(const char *device, const char *type, const char *name);
 void sld_property_report(const char *device, const char *opcode);
 
 #endif

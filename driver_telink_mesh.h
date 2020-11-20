@@ -36,7 +36,7 @@ int telink_mesh_alarm_run(uint16_t dst, uint8_t idx, uint8_t enable);
 int telink_mesh_alarm_get(uint16_t dst, uint8_t *avalid, uint8_t *idx, uint8_t *cmd, uint8_t *type, uint8_t *enable, uint8_t *month, uint8_t *day, uint8_t *hour, uint8_t *minute, uint8_t *second, uint8_t *scene);
 int telink_mesh_group_add(uint16_t dst, uint16_t group);
 int telink_mesh_group_delete(uint16_t dst, uint16_t group);
-int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t r, uint8_t g, uint8_t b);
+int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t *rgb);
 int telink_mesh_scene_delete(uint16_t dst, uint8_t scene);
 int telink_mesh_scene_load(uint16_t dst, uint8_t scene);
 int telink_mesh_scene_get(uint16_t dst, uint8_t scene, uint8_t *luminance, uint8_t *rgb);

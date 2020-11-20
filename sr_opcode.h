@@ -24,5 +24,7 @@
 #define OPCODE_POWERCONTROLLER_TURNOFF "TurnOff"
 #define OPCODE_DISCOVER "Discover"
 #define OPCODE_DISCOVER_REPORT "DiscoverReport"
+#define OPCODE_RECALL "Recall"
+#define OPCODE_RECALL_REPORT "RecallReport"
 
 #endif
