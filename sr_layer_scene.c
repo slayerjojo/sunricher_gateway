@@ -83,6 +83,18 @@ typedef struct
     char id[];
 }ContextSceneUpdate;
 
+static int mission_scene_recall(SigmaMission *mission)
+{
+    uint8_t *scene = sigma_mission_extends(mission);
+
+    int ret = telink_mesh_scene_load(0x8000 + *scene, *scene);
+    if (!ret)
+        return 0;
+    if (ret < 0)
+        SigmaLogError(0, 0, "telink_mesh_scene_load(scene:%d) failed", *scene);
+    return 1;
+}
+
 static int mission_scene_update(SigmaMission *mission)
 {
     ContextSceneUpdate *ctx = sigma_mission_extends(mission);
@@ -135,6 +147,47 @@ static int mission_scene_update(SigmaMission *mission)
     }
     else if (STATE_TYPE_SCENE_UPDATE_DONE == ctx->state)
     {
+        cJSON_DeleteItemFromObject(ctx->scenes, "actions");
+        while (ctx->old && ctx->old->child)
+        {
+            cJSON *old = cJSON_DetachItemFromArray(ctx->old, 0);
+            cJSON_AddItemToArray(ctx->final, old);
+        }
+        cJSON_Delete(ctx->apply);
+        cJSON_Delete(ctx->old);
+        cJSON_AddItemToObject(ctx->scenes, "actions", ctx->final);
+
+        if (ctx->final->child)
+        {
+            kv_list_add("scenes", ctx->id);
+
+            char key[64] = {0};
+            sprintf(key, "telink_scene_%s", ctx->id);
+            kv_set(key, &(ctx->scene), 1);
+            
+            char *str = cJSON_PrintUnformatted(ctx->scenes);
+            if (kv_set(ctx->id, str, os_strlen(str)) < 0)
+                SigmaLogError(0, 0, "save scene %s failed.", ctx->id);
+            os_free(str);
+        }
+
+        uint8_t seq = sll_seq();
+        cJSON *packet = cJSON_CreateObject();
+        cJSON *header = cJSON_CreateObject();
+        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Scene"));
+        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_ADD_OR_UPDATE_REPORT));
+        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+        cJSON_AddItemToObject(packet, "header", header);
+        cJSON_AddItemToObject(packet, "scene", ctx->scenes);
+
+        char *str = cJSON_PrintUnformatted(packet);
+        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
+        os_free(str);
+        cJSON_Delete(packet);
+
+        return 1;
     }
     else if (STATE_TYPE_SCENE_UPDATE_APPLY == ctx->state)
     {
@@ -192,7 +245,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while (0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     else if (STATE_TYPE_SCENE_UPDATE_APPLY_PROPERTIES == ctx->state)
     {
@@ -243,25 +296,34 @@ static int mission_scene_update(SigmaMission *mission)
             uint8_t luminance = 0, rgb[3] = {0};
             {
                 cJSON *v = sld_property_get(epid->valuestring, "BrightnessController", "brightness");
-                luminance = v->valueint;
-                cJSON_Delete(v);
+                if (v)
+                {
+                    luminance = v->valueint;
+                    cJSON_Delete(v);
+                }
             }
             {
                 cJSON *v = sld_property_get(epid->valuestring, "ColorController", "color");
-                cJSON *mode = cJSON_GetObjectItem(v, "mode");
-                if (mode && !os_strcmp(mode->valuestring, "RGB"))
+                if (v)
                 {
-                    cJSON *r = cJSON_GetObjectItem(v, "red");
-                    if (r)
-                        rgb[0] = r->valueint;
-                    cJSON *g = cJSON_GetObjectItem(v, "green");
-                    if (g)
-                        rgb[1] = g->valueint;
-                    cJSON *b = cJSON_GetObjectItem(v, "blue");
-                    if (b)
-                        rgb[2] = b->valueint;
+                    cJSON *mode = cJSON_GetObjectItem(v, "mode");
+                    if (mode)
+                    {
+                        if (!os_strcmp(mode->valuestring, "RGB"))
+                        {
+                            cJSON *r = cJSON_GetObjectItem(v, "red");
+                            if (r)
+                                rgb[0] = r->valueint;
+                            cJSON *g = cJSON_GetObjectItem(v, "green");
+                            if (g)
+                                rgb[1] = g->valueint;
+                            cJSON *b = cJSON_GetObjectItem(v, "blue");
+                            if (b)
+                                rgb[2] = b->valueint;
+                        }
+                    }
+                    cJSON_Delete(v);
                 }
-                cJSON_Delete(v);
             }
             cJSON *property = cJSON_GetObjectItem(item, "properties");
             if (!property)
@@ -290,6 +352,7 @@ static int mission_scene_update(SigmaMission *mission)
                         rgb[2] = cJSON_GetObjectItem(value, "b")->valueint;
                     }
                 }
+                property = property->next;
             }
             int ret = telink_mesh_scene_add(addr->valueint, ctx->scene, luminance, rgb);
             if (ret > 0)
@@ -310,7 +373,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while(0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     else if (STATE_TYPE_SCENE_UPDATE_KICKOUT == ctx->state)
     {
@@ -505,92 +568,88 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
                 SigmaLogError(0, 0, "save scene %s failed.", id->valuestring);
             os_free(str);
         }
-        else
+        else do
         {
-            do
+            uint8_t sid = 0;
+            char key[64] = {0};
+            sprintf(key, "telink_scene_%s", id->valuestring);
+            if (kv_get(key, key, 1) > 0)
             {
-                uint8_t sid = 0;
-                char key[64] = {0};
-                sprintf(key, "telink_scene_%s", id->valuestring);
-                if (kv_get(key, key, 64) > 0)
+                sid = key[0];
+            }
+            else
+            {
+                uint16_t map = 0;
+                const char *id = 0;
+                void *it = 0;
+                while ((id = kv_list_iterator("scenes", &it)))
                 {
-                    sid = atoi(key);
+                    sprintf(key, "telink_scene_%s", id);
+                    if (kv_get(key, key, 1) > 0)
+                    {
+                        int scene = key[0];
+                        if (scene < 16)
+                            map |= 1ul << scene;
+                    }
                 }
-                else
-                {
-                    uint16_t map = 0;
-                    const char *id = 0;
-                    void *it = 0;
-                    while ((id = kv_list_iterator("scenes", &it)))
-                    {
-                        sprintf(key, "telink_scene_%s", id);
-                        if (kv_get(key, key, 64) > 0)
-                        {
-                            int scene = atoi(key);
-                            if (scene < 16)
-                                map |= 1ul << scene;
-                        }
-                    }
-                    kv_list_iterator_release(it);
+                kv_list_iterator_release(it);
 
-                    for (sid = 1; sid < 16; sid++)
-                    {
-                        if (!(map & (1 << sid)))
-                            break;
-                    }
-                    if (sid >= 16)
+                for (sid = 1; sid < 16; sid++)
+                {
+                    if (!(map & (1 << sid)))
                         break;
                 }
-
-                ContextSceneUpdate *ctx = 0;
-                SigmaMission *mission = 0;
-                SigmaMissionIterator it = {0};
-                while ((mission = sigma_mission_iterator(&it)))
-                {
-                    if (MISSION_TYPE_SCENE_UPDATE != mission->type)
-                        continue;
-
-                    ctx = sigma_mission_extends(mission);
-                    if (ctx->scene)
-                        continue;
-
+                if (sid >= 16)
                     break;
-                }
-                if (mission)
-                {
-                    SigmaLogError(0, 0, "scene %s is busy.", id->valuestring);
-                    break;
-                }
-
-                mission = sigma_mission_create(0, MISSION_TYPE_SCENE_UPDATE, mission_scene_update, sizeof(ContextSceneUpdate) + os_strlen(id->valuestring) + 1);
-                if (!mission)
-                {
-                    SigmaLogError(0, 0, "out of memory");
-                    break;
-                }
-                ctx = sigma_mission_extends(mission);
-                ctx->state = STATE_TYPE_SCENE_UPDATE_INIT;
-                os_strcpy(ctx->id, id->valuestring);
-                ctx->scene = sid;
-                ctx->scenes = cJSON_Duplicate(scene, 1);
-                ctx->apply = cJSON_Duplicate(cJSON_GetObjectItem(scene, "actions"), 1);
-                ctx->final = cJSON_CreateArray();
-
-                char *v = kv_acquire(id->valuestring, 0);
-                if (v)
-                {
-                    cJSON *old = cJSON_Parse(v);
-                    if (old)
-                    {
-                        ctx->old = cJSON_GetObjectItem(old, "actions");
-                        cJSON_Delete(old);
-                    }
-                    kv_free(v);
-                }
-                return;
             }
-            while (0);
-        }
+
+            ContextSceneUpdate *ctx = 0;
+            SigmaMission *mission = 0;
+            SigmaMissionIterator it = {0};
+            while ((mission = sigma_mission_iterator(&it)))
+            {
+                if (MISSION_TYPE_SCENE_UPDATE != mission->type)
+                    continue;
+
+                ctx = sigma_mission_extends(mission);
+                if (ctx->scene)
+                    continue;
+
+                break;
+            }
+            if (mission)
+            {
+                SigmaLogError(0, 0, "scene %s is busy.", id->valuestring);
+                break;
+            }
+
+            mission = sigma_mission_create(0, MISSION_TYPE_SCENE_UPDATE, mission_scene_update, sizeof(ContextSceneUpdate) + os_strlen(id->valuestring) + 1);
+            if (!mission)
+            {
+                SigmaLogError(0, 0, "out of memory");
+                break;
+            }
+            ctx = sigma_mission_extends(mission);
+            ctx->state = STATE_TYPE_SCENE_UPDATE_INIT;
+            os_strcpy(ctx->id, id->valuestring);
+            ctx->scene = sid;
+            ctx->scenes = cJSON_Duplicate(scene, 1);
+            ctx->apply = cJSON_Duplicate(cJSON_GetObjectItem(scene, "actions"), 1);
+            ctx->final = cJSON_CreateArray();
+
+            char *v = kv_acquire(id->valuestring, 0);
+            if (v)
+            {
+                cJSON *old = cJSON_Parse(v);
+                if (old)
+                {
+                    ctx->old = cJSON_Duplicate(cJSON_GetObjectItem(old, "actions"), 1);
+                    cJSON_Delete(old);
+                }
+                kv_free(v);
+            }
+            return;
+        } while (0);
 
         uint8_t seq = sll_seq();
         cJSON *packet = cJSON_CreateObject();
@@ -714,6 +773,35 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
         }
 
         const char *id = sceneId->valuestring;
+        uint8_t sid;
+        char key[64] = {0};
+        sprintf(key, "telink_scene_%s", id);
+        if (kv_get(key, &sid, 1) > 0)
+        {
+            SigmaMission *mission = 0;
+            SigmaMissionIterator it = {0};
+            while ((mission = sigma_mission_iterator(&it)))
+            {
+                if (MISSION_TYPE_SCENE_RECALL != mission->type)
+                    continue;
+
+                uint8_t *ctx = sigma_mission_extends(mission);
+                if (*ctx != sid)
+                    continue;
+
+                break;
+            }
+            if (!mission)
+            {
+                mission = sigma_mission_create(0, MISSION_TYPE_SCENE_RECALL, mission_scene_recall, sizeof(uint8_t));
+                if (!mission)
+                {
+                    SigmaLogError(0, 0, "out of memory");
+                    return;
+                }
+                *(uint8_t *)sigma_mission_extends(mission) = sid;
+            }
+        }
 
         uint8_t seq = sll_seq();
         cJSON *packet = cJSON_CreateObject();

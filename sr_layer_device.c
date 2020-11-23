@@ -72,7 +72,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         }
         sld_save(epid->valuestring, device);
 
-        sld_profile_report(epid->valuestring, 0);
+        sld_profile_report(epid->valuestring, 0, OPCODE_ADD_OR_UPDATE_REPORT);
         cJSON_Delete(device);
     }
     else if (!os_strcmp(name->valuestring, OPCODE_DELETE))
@@ -92,6 +92,8 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         }
 
         SigmaLogAction(0, 0, "handle device delete");
+
+        sigma_event_dispatch(EVENT_TYPE_DEVICE_DELETE, epid->valuestring, os_strlen(epid->valuestring));
 
         sld_delete(epid->valuestring);
     }
@@ -149,7 +151,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
 {
     char *id = (char *)msg;
 
-    sld_profile_report(0, id);
+    sld_profile_report(0, id, OPCODE_BIND_GATEWAY_REPORT);
 }
 
 void sld_init(void)
@@ -244,7 +246,7 @@ void sld_delete(const char *id)
     cJSON_Delete(packet);
 }
 
-void sld_profile_report(const char *device, const char *id)
+void sld_profile_report(const char *device, const char *id, const char *opcode)
 {
     char *gateway = 0;
     if (!device)
@@ -263,7 +265,7 @@ void sld_profile_report(const char *device, const char *id)
     cJSON *header = cJSON_CreateObject();
     cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
     cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
-    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_BIND_GATEWAY_REPORT));
+    cJSON_AddItemToObject(header, "name", cJSON_CreateString(opcode));
     cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
     cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
     cJSON_AddItemToObject(packet, "header", header);

@@ -15,6 +15,7 @@ enum
     EVENT_TYPE_CLIENT_CONNECTION,
     EVENT_TYPE_CLIENT_AUTH,
     EVENT_TYPE_GATEWAY_BIND,
+    EVENT_TYPE_DEVICE_DELETE,
 };
 
 typedef void (*SigmaEventHandler)(void *ctx, uint8_t event, void *msg, int size);

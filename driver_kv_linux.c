@@ -143,7 +143,7 @@ void linux_kv_list_remove(const char *key, const char *item)
             break;
         pos += os_strlen(list + pos) + 1;
     }
-    if (pos >= size)
+    if (pos < size)
     {
         if (size > os_strlen(item) + 1)
         {
@@ -192,7 +192,7 @@ const char *linux_kv_list_iterator(const char *key, void **iterator)
             kv_free(it->list);
         it->list = 0;
         os_free(it);
-        it = 0;
+        *iterator = 0;
         return 0;
     }
     char *ret = it->list + it->pos;

@@ -171,6 +171,7 @@ typedef struct
 typedef struct
 {
     uint8_t type;
+    uint8_t retry;
     uint8_t state;
 }TelinkRequest;
 
@@ -512,6 +513,7 @@ int telink_mesh_device_add(uint8_t period, uint8_t after)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_ADD;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceAdd *)(_request + 1);
         ctx->period = period;
@@ -647,6 +649,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
             return -1;
         }
         _request->type = TELINK_REQUEST_MESH_SET;
+        _request->retry = 0;
         _request->state = STATE_TLMSM_NAME;
         ctx = (TRMeshSet *)(_request + 1);
         os_strcpy(ctx->name, name);
@@ -674,6 +677,13 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLMSM_NAME;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -690,6 +700,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_PASSWORD;
+            _request->retry = 0;
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
             else if (2 == ret)
@@ -703,6 +714,16 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
             
             if (ret)
             {
+                if (2 == ret)
+                {
+                    _request->retry++;
+                    if (_request->retry < 10)
+                    {
+                        SigmaLogError(0, 0, "retry %d", _request->retry);
+                        _request->state = STATE_TLMSM_NAME;
+                        return 0;
+                    }
+                }
                 os_free(_request);
                 _request = 0;
                 return -1;
@@ -723,6 +744,13 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLMSM_PASSWORD;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -739,6 +767,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_LTK;
+            _request->retry = 0;
             
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
@@ -773,6 +802,13 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLMSM_PASSWORD;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -789,6 +825,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_TAKE_EFFECT;
+            _request->retry = 0;
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
             else if (2 == ret)
@@ -822,6 +859,13 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLMSM_TAKE_EFFECT;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -978,6 +1022,7 @@ int telink_mesh_get(char *name, char *password, uint8_t *ltk)
             return -1;
         }
         _request->type = TELINK_REQUEST_MESH_GET;
+        _request->retry = 0;
         _request->state = STATE_TLMGM_NAME;
         ctx = (TRMeshGet *)(_request + 1);
     }
@@ -1120,6 +1165,7 @@ int telink_mesh_light_onoff(uint16_t dst, uint8_t onoff, uint16_t delay)
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_ONOFF;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRLightOnoff *)(_request + 1);
         ctx->dst = dst;
@@ -1168,6 +1214,13 @@ int telink_mesh_light_onoff(uint16_t dst, uint8_t onoff, uint16_t delay)
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -1215,6 +1268,7 @@ int telink_mesh_light_luminance(uint16_t dst, uint8_t luminance)
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_LUMINANCE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRLightLuminance *)(_request + 1);
         ctx->dst = dst;
@@ -1260,6 +1314,13 @@ int telink_mesh_light_luminance(uint16_t dst, uint8_t luminance)
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -1318,6 +1379,7 @@ int telink_mesh_light_color_channel(uint16_t dst, uint8_t channel, uint8_t color
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_COLOR_CHANNEL;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRLightColorChannel *)(_request + 1);
         ctx->dst = dst;
@@ -1414,6 +1476,7 @@ int telink_mesh_light_color(uint16_t dst, uint8_t r, uint8_t g, uint8_t b)
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_COLOR;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRLightColor *)(_request + 1);
         ctx->dst = dst;
@@ -1464,6 +1527,13 @@ int telink_mesh_light_color(uint16_t dst, uint8_t r, uint8_t g, uint8_t b)
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -1511,6 +1581,7 @@ int telink_mesh_light_ctcolor(uint16_t dst, uint8_t percentage)
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_COLOR_CT;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRLightColorCT *)(_request + 1);
         ctx->dst = dst;
@@ -1605,6 +1676,7 @@ int telink_mesh_device_addr(uint16_t dst, uint8_t *mac, uint16_t new_addr)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_ADDR;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceAddr *)(_request + 1);
         ctx->dst = dst;
@@ -1732,6 +1804,7 @@ int telink_mesh_device_discover(void)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_DISCOVER;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
     }
     if (STATE_TLM_REQUEST == _request->state)
@@ -1885,6 +1958,7 @@ int telink_mesh_device_status(uint16_t dst, uint8_t *ttc, uint8_t *hops, uint8_t
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_STATUS;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceStatus *)(_request + 1);
         ctx->dst = dst;
@@ -2018,6 +2092,7 @@ int telink_mesh_device_group(uint16_t dst, uint8_t type, uint16_t *groups, uint8
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_GROUP;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceGroup *)(_request + 1);
         ctx->dst = dst;
@@ -2171,6 +2246,7 @@ int telink_mesh_device_scene(uint16_t dst)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_GROUP;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceScene *)(_request + 1);
         ctx->dst = dst;
@@ -2263,6 +2339,7 @@ int telink_mesh_device_blink(uint16_t dst, uint8_t times)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_BLINK;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceBlink *)(_request + 1);
         ctx->dst = dst;
@@ -2354,6 +2431,7 @@ int telink_mesh_device_kickout(uint16_t dst)
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_KICKOUT;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceKickout *)(_request + 1);
         ctx->dst = dst;
@@ -2450,6 +2528,7 @@ int telink_mesh_time_set(uint16_t dst, uint16_t year, uint8_t month, uint8_t day
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_TIME_SET;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceTimeSet *)(_request + 1);
         ctx->dst = dst;
@@ -2552,6 +2631,7 @@ int telink_mesh_time_get(uint16_t dst, uint16_t *year, uint8_t *month, uint8_t *
             return -1;
         }
         _request->type = TELINK_REQUEST_DEVICE_TIME_GET;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRDeviceTimeGet *)(_request + 1);
         ctx->dst = dst;
@@ -2689,6 +2769,7 @@ int telink_mesh_alarm_add_device(uint16_t dst, uint8_t idx, uint8_t onoff, uint8
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_ADD_DEVICE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmAddDevice *)(_request + 1);
         ctx->dst = dst;
@@ -2800,6 +2881,7 @@ int telink_mesh_alarm_add_scene(uint16_t dst, uint8_t idx, uint8_t scene, uint8_
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_ADD_SCENE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmAddScene *)(_request + 1);
         ctx->dst = dst;
@@ -2911,6 +2993,7 @@ int telink_mesh_alarm_modify_device(uint16_t dst, uint8_t idx, uint8_t onoff, ui
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_MODIFY_DEVICE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmModifyDevice *)(_request + 1);
         ctx->dst = dst;
@@ -3023,6 +3106,7 @@ int telink_mesh_alarm_modify_scene(uint16_t dst, uint8_t idx, uint8_t scene, uin
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_MODIFY_SCENE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmModifyScene *)(_request + 1);
         ctx->dst = dst;
@@ -3129,6 +3213,7 @@ int telink_mesh_alarm_delete(uint16_t dst, uint8_t idx)
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_DELETE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmDelete *)(_request + 1);
         ctx->dst = dst;
@@ -3223,6 +3308,7 @@ int telink_mesh_alarm_run(uint16_t dst, uint8_t idx, uint8_t enable)
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_RUN;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmRun *)(_request + 1);
         ctx->dst = dst;
@@ -3316,6 +3402,7 @@ int telink_mesh_alarm_get(uint16_t dst, uint8_t *avalid, uint8_t *idx, uint8_t *
             return -1;
         }
         _request->type = TELINK_REQUEST_ALARM_GET;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRAlarmGet *)(_request + 1);
         ctx->dst = dst;
@@ -3453,6 +3540,7 @@ int telink_mesh_group_add(uint16_t dst, uint16_t group)
             return -1;
         }
         _request->type = TELINK_REQUEST_GROUP_ADD;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRGroupAdd *)(_request + 1);
         ctx->dst = dst;
@@ -3547,6 +3635,7 @@ int telink_mesh_group_delete(uint16_t dst, uint16_t group)
             return -1;
         }
         _request->type = TELINK_REQUEST_GROUP_DELETE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRGroupDelete *)(_request + 1);
         ctx->dst = dst;
@@ -3643,6 +3732,7 @@ int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t
             return -1;
         }
         _request->type = TELINK_REQUEST_SCENE_ADD;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRSceneAdd *)(_request + 1);
         ctx->dst = dst;
@@ -3740,6 +3830,7 @@ int telink_mesh_scene_delete(uint16_t dst, uint8_t scene)
             return -1;
         }
         _request->type = TELINK_REQUEST_SCENE_DELETE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRSceneDelete *)(_request + 1);
         ctx->dst = dst;
@@ -3833,6 +3924,7 @@ int telink_mesh_scene_load(uint16_t dst, uint8_t scene)
             return -1;
         }
         _request->type = TELINK_REQUEST_SCENE_LOAD;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRSceneLoad *)(_request + 1);
         ctx->dst = dst;
@@ -3925,6 +4017,7 @@ int telink_mesh_scene_get(uint16_t dst, uint8_t scene, uint8_t *luminance, uint8
             return -1;
         }
         _request->type = TELINK_REQUEST_SCENE_GET;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRSceneGet *)(_request + 1);
         ctx->dst = dst;
@@ -4050,6 +4143,7 @@ int telink_mesh_light_status_request(void)
             return -1;
         }
         _request->type = TELINK_REQUEST_LIGHT_STATUS_REQUEST;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
     }
     if (STATE_TLM_REQUEST == _request->state)
@@ -4153,6 +4247,7 @@ int telink_mesh_extend_write(uint16_t dst, const uint8_t *buffer, uint8_t size)
             return -1;
         }
         _request->type = TELINK_REQUEST_EXTENDS_WRITE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRExtendsWrite *)(_request + 1);
         ctx->dst = dst;
@@ -4282,6 +4377,7 @@ int telink_mesh_extend_sr_write(uint16_t vendor, uint16_t dst, const uint8_t *bu
             return -1;
         }
         _request->type = TELINK_REQUEST_EXTENDS_SR_WRITE;
+        _request->retry = 0;
         _request->state = STATE_TLM_REQUEST;
         ctx = (TRExtendsSRWrite *)(_request + 1);
         ctx->vendor = vendor;
