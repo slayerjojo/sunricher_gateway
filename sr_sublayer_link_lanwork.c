@@ -539,6 +539,7 @@ void ssll_auth(int fp, const char *id, uint8_t *key)
     }
     os_strcpy(session->id, id);
     os_memcpy(session->key, key, 16);
+    session->auth = 1;
 
     SigmaLogAction(0, 0, "session is authed(id:%s)", session->id);
 
