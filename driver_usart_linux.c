@@ -70,7 +70,7 @@ int linux_usart_open(uint8_t usart, uint32_t baud, uint32_t databit, char parity
             SigmaLogHalt(0, 0, "serial path not found");
             return -1;
         }
-        fp = open(up->path, O_RDWR);
+        fp = open(up->path, O_RDWR|O_NOCTTY|O_NDELAY);
     }
     if (-1 == fp)
     {
