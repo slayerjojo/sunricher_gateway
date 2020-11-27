@@ -622,8 +622,8 @@ int telink_mesh_device_add(uint8_t period, uint8_t after)
 
 typedef struct
 {
-    char name[16];
-    char password[16];
+    char name[16 + 1];
+    char password[16 + 1];
     char ltk[16];
     uint8_t effect;
 }TRMeshSet;
