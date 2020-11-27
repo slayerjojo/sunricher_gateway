@@ -159,7 +159,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         while (pos < size)
         {
             cJSON *c = cJSON_CreateObject();
-            cJSON_AddItemToObject(c, "isOwner", cJSON_CreateBool(!os_strcmp(client, owner)));
+            cJSON_AddItemToObject(c, "isOwner", cJSON_CreateBool(!os_strcmp(client + pos, owner)));
             cJSON_AddItemToObject(c, "userId", cJSON_CreateString(client + pos));
             cJSON_AddItemToArray(users, c);
             pos += os_strlen(client + pos) + 1;
