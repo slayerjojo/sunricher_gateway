@@ -622,8 +622,8 @@ int telink_mesh_device_add(uint8_t period, uint8_t after)
 
 typedef struct
 {
-    char name[33];
-    char password[33];
+    char name[16];
+    char password[16];
     char ltk[16];
     uint8_t effect;
 }TRMeshSet;
@@ -665,9 +665,9 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         return 0;
     if (STATE_TLMSM_NAME == _request->state)
     {
-        uint8_t cmd[1 + 16] = {0};
+        uint8_t cmd[1 + 16 + 1] = {0};
         cmd[0] = MASTER_CMD_SET_GW_MESH_NAME;
-        os_strcpy(cmd + 1, name);
+        os_memcpy(cmd + 1, name, 16);
         usart_write(0, cmd, 1 + os_strlen(name));
         _request->state = STATE_TLMSM_WAIT_NAME;
         _timer = os_ticks();
@@ -732,9 +732,9 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
     }
     if (STATE_TLMSM_PASSWORD == _request->state)
     {
-        uint8_t cmd[1 + 16] = {0};
+        uint8_t cmd[1 + 16 + 1] = {0};
         cmd[0] = MASTER_CMD_SET_GW_MESH_PASSWORD;
-        os_strcpy(cmd + 1, password);
+        os_memcpy(cmd + 1, password, 16);
         usart_write(0, cmd, 1 + os_strlen(password));
         _request->state = STATE_TLMSM_WAIT_PASSWORD;
         _timer = os_ticks();
@@ -1003,8 +1003,8 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
 
 typedef struct
 {
-    char name[33];
-    char password[33];
+    char name[17];
+    char password[17];
     char ltk[16];
 }TRMeshGet;
 
