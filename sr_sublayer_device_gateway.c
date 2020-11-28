@@ -406,8 +406,100 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         cJSON *attributes = cJSON_CreateObject();
         cJSON_AddItemToObject(attributes, "mac", cJSON_CreateString(id + 7));
         cJSON_AddItemToObject(attributes, "addr", cJSON_CreateNumber(ctx->devices->addr));
-        cJSON_AddItemToObject(attributes, "category", cJSON_CreateNumber(category));
-        cJSON *capabilities = cJSON_Parse("[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]");
+        cJSON_AddItemToObject(attributes, "deviceType", cJSON_CreateNumber(category));
+
+        const char *caps = "[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]";
+        if (0x0111 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true}\
+            ]";
+        else if (0x0112 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true}\
+            ]";
+        else if (0x0113 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true}\
+            ]";
+        else if (0x0114 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true}\
+            ]";
+        else if (0x0130 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true}\
+            ]";
+        else if (0x0131 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true}\
+            ]";
+        else if (0x0132 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true}\
+            ]";
+        else if (0x0133 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+            ]";
+        else if (0x0134 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true},\
+                {\"type\":\"WhiteController\",\"version\":\"1\",\"properties\":[\"white\"],\"reportable\":true}\
+            ]";
+        else if (0x0135 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true},\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+            ]";
+        else if (0x0136 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true}\
+            ]";
+        else if (0x0137 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true},\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+            ]";
+        else if (0x0138 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true}\
+            ]";
+        else if (0x0139 == category)
+            caps = "[\
+                {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
+                {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
+                {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
+                {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true}\
+            ]";
+        cJSON *capabilities = cJSON_Parse(caps);
         sld_create(id, name_device(category), name_category(category), connections, attributes, capabilities);
         sld_profile_report(id, 0, OPCODE_ADD_OR_UPDATE_REPORT);
 
@@ -1216,7 +1308,7 @@ void ssdg_update(void)
                 SigmaLogError(0, 0, "device addr:%04x not found.", src);
             if (ret > 0)
             {
-                sld_property_set(id, "EndpointHealth", "connectivity", cJSON_CreateString(online ? "OK" : "OFFLINE"));
+                sld_property_set(id, "EndpointHealth", "connectivity", cJSON_CreateString(online ? "OK" : "UNREACHABLE"));
                 sld_property_set(id, "BrightnessController", "brightness", cJSON_CreateNumber(luminance));
                 sld_property_set(id, "PowerController", "powerState", cJSON_CreateNumber(!!luminance));
                 sld_property_report(id, "ChangeReport");
