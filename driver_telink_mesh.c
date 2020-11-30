@@ -948,7 +948,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
     }
     if (STATE_TLMSM_UPDATE == _request->state)
     {
-        if (os_ticks_from(_timer) > os_ticks_ms(20000))
+        if (os_ticks_from(_timer) > os_ticks_ms(30000))
         {
             SigmaLogError(0, 0, "timeout");
             os_free(_request);
@@ -2473,7 +2473,7 @@ int telink_mesh_device_kickout(uint16_t dst)
     }
     if (STATE_TLM_WAIT == _request->state)
     {
-        if (os_ticks_from(_timer) > os_ticks_ms(3000))
+        if (os_ticks_from(_timer) > os_ticks_ms(5000))
         {
             SigmaLogError(0, 0, "timeout");
             os_free(_request);
