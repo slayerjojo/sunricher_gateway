@@ -2473,7 +2473,7 @@ int telink_mesh_device_kickout(uint16_t dst)
     }
     if (STATE_TLM_WAIT == _request->state)
     {
-        if (os_ticks_from(_timer) > os_ticks_ms(1000))
+        if (os_ticks_from(_timer) > os_ticks_ms(3000))
         {
             SigmaLogError(0, 0, "timeout");
             os_free(_request);

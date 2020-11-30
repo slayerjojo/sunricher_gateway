@@ -373,7 +373,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         if (!ret)
             return 0;
         if (ret < 0)
-            SigmaLogError(0, 0, "telink_mesh_device_kickout failed.(ret:%d device:%08x)", ret, ctx->devices->addr);
+            SigmaLogError(0, 0, "telink_mesh_device_kickout failed.(ret:%d device:%04x)", ret, ctx->devices->addr);
         DepotDevice *dd = ctx->devices;
         ctx->devices = ctx->devices->_next;
         os_free(dd);
@@ -404,7 +404,15 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             0
         };
         cJSON *attributes = cJSON_CreateObject();
-        cJSON_AddItemToObject(attributes, "mac", cJSON_CreateString(id + 7));
+        {
+            char gateway[33] = {0};
+            if (kv_get("gateway", gateway, 32) > 0)
+                cJSON_AddItemToObject(attributes, "gatewayId", cJSON_CreateString(gateway));
+        }
+        cJSON_AddItemToObject(attributes, "bleMac", cJSON_CreateString(id + 7));
+        char mac[12 + 1] = {0};
+        bin2hex(mac, network_net_mac(), 6);
+        cJSON_AddItemToObject(attributes, "wifiMac", cJSON_CreateString(mac));
         cJSON_AddItemToObject(attributes, "addr", cJSON_CreateNumber(ctx->devices->addr));
         cJSON_AddItemToObject(attributes, "deviceType", cJSON_CreateNumber(category));
 
