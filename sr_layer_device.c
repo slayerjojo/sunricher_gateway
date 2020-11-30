@@ -72,7 +72,7 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
         }
         sld_save(epid->valuestring, device);
 
-        sld_profile_report(epid->valuestring, 0, OPCODE_ADD_OR_UPDATE_REPORT);
+        sld_profile_report(epid->valuestring, 0, OPCODE_ADD_OR_UPDATE_REPORT, 0);
         cJSON_Delete(device);
     }
     else if (!os_strcmp(name->valuestring, OPCODE_DELETE))
@@ -151,7 +151,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
 {
     char *id = (char *)msg;
 
-    sld_profile_report(0, id, OPCODE_BIND_GATEWAY_REPORT);
+    sld_profile_report(0, id, OPCODE_BIND_GATEWAY_REPORT, 0);
 }
 
 void sld_init(void)
@@ -246,7 +246,7 @@ void sld_delete(const char *id)
     cJSON_Delete(packet);
 }
 
-void sld_profile_report(const char *device, const char *id, const char *opcode)
+void sld_profile_report(const char *device, const char *id, const char *opcode, cJSON *payload)
 {
     char *gateway = 0;
     if (!device)
@@ -272,16 +272,20 @@ void sld_profile_report(const char *device, const char *id, const char *opcode)
 
     cJSON_AddItemToObject(packet, "endpoint", ep);
 
+    cJSON *pl = 0;
+    if (payload)
+        pl = cJSON_Duplicate(payload, 1);
+    else
+        pl = cJSON_CreateObject();
     if (id)
     {
-        cJSON *payload = cJSON_CreateObject();
-        cJSON_AddItemToObject(payload, "bindResult", cJSON_CreateString("OK"));
+        cJSON_AddItemToObject(pl, "bindResult", cJSON_CreateString("OK"));
         char owner[33] = {0};
         int ret = sll_client_owner(owner);
-        cJSON_AddItemToObject(payload, "isOwner", cJSON_CreateBool(!os_strcmp(owner, id)));
-        cJSON_AddItemToObject(payload, "userId", cJSON_CreateString(id));
-        cJSON_AddItemToObject(packet, "payload", payload);
+        cJSON_AddItemToObject(pl, "isOwner", cJSON_CreateBool(!os_strcmp(owner, id)));
+        cJSON_AddItemToObject(pl, "userId", cJSON_CreateString(id));
     }
+    cJSON_AddItemToObject(packet, "payload", pl);
     char *str = cJSON_PrintUnformatted(packet);
     if (id)
     {

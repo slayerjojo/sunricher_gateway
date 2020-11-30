@@ -509,7 +509,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             ]";
         cJSON *capabilities = cJSON_Parse(caps);
         sld_create(id, name_device(category), name_category(category), connections, attributes, capabilities);
-        sld_profile_report(id, 0, OPCODE_ADD_OR_UPDATE_REPORT);
+        sld_profile_report(id, 0, OPCODE_ADD_OR_UPDATE_REPORT, 0);
 
         char sht[7 + 4 + 1] = {0};
         sprintf(sht, "tladdr_%04x", ctx->devices->addr);
@@ -545,8 +545,32 @@ static int mission_discover_endpoints(SigmaMission *mission)
 
     const char *device = kv_list_iterator("devices", &(ctx->it));
     if (!device)
+    {
+        uint8_t seq = sll_seq();
+        cJSON *packet = cJSON_CreateObject();
+        cJSON *header = cJSON_CreateObject();
+        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DISCOVER_ENDPOINTS_REPORT));
+        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+        cJSON_AddItemToObject(packet, "header", header);
+
+        cJSON_AddItemToObject(packet, "endpoint", cJSON_CreateNull());
+
+        cJSON *pl = cJSON_CreateObject();
+        cJSON_AddItemToObject(pl, "isEnd", cJSON_CreateTrue());
+        cJSON_AddItemToObject(packet, "payload", pl);
+        char *str = cJSON_PrintUnformatted(packet);
+        sll_send(ctx->client, seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
+        os_free(str);
+        cJSON_Delete(packet);
         return 1;
-    sld_profile_report(device, ctx->client, OPCODE_DISCOVER_ENDPOINTS_REPORT);
+    }
+    cJSON *payload = cJSON_CreateObject();
+    cJSON_AddItemToObject(payload, "isEnd", cJSON_CreateFalse());
+    sld_profile_report(device, ctx->client, OPCODE_DISCOVER_ENDPOINTS_REPORT, payload);
+    cJSON_Delete(payload);
 
     return 0;
 }
@@ -1280,7 +1304,7 @@ void ssdg_init(void)
         sld_create(id, "SR BLE Gateway", "SR_GATEWAY", connections, attrs, capabilities);
         kv_set("gateway", id, os_strlen(id));
         
-        sld_profile_report(id, 0, OPCODE_BIND_GATEWAY_REPORT);
+        sld_profile_report(id, 0, OPCODE_BIND_GATEWAY_REPORT, 0);
 
         cJSON_Delete(attrs);
         cJSON_Delete(capabilities);
