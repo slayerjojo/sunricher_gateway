@@ -93,7 +93,7 @@ int tmes_device_type(uint16_t dst, SRCategory *category, uint8_t *group_count, u
     if (ret < 0)
         return ret;
     if (category)
-        *category = *(uint16_t *)&(data[1]);
+        *category = ntohs(*(uint16_t *)&(data[1]));
     if (group_count)
         *group_count = data[3];
     if (start)

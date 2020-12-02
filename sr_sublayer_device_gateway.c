@@ -47,7 +47,7 @@ const char *name_device(SRCategory category)
 
 const char *name_category(SRCategory category)
 {
-    return "SR_LIGHT";
+    return "LIGHT";
 }
 
 typedef struct _depot_device
@@ -164,11 +164,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             return 0;
         }
         if (ret > 0)
-        {
-            ctx->state = STATE_GATEWAY_TELINK_MESH_ADD_START;
-            if (ctx->stop)
-                ctx->state = STATE_GATEWAY_TELINK_MESH_FAMILY;
-        }
+            ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
     }
     if (STATE_GATEWAY_TELINK_MESH_DISCOVER == ctx->state)
     {
@@ -189,6 +185,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         {
             ctx->state = STATE_GATEWAY_TELINK_MESH_LOOKUP;
             ctx->timer = os_ticks();
+            ctx->recuit = 0;
         }
     }
     if (STATE_GATEWAY_TELINK_MESH_LOOKUP == ctx->state)
@@ -243,8 +240,9 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                 }
                 kv_list_iterator_release(it);
 
-                ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
-                ctx->recuit = 0;
+                ctx->state = STATE_GATEWAY_TELINK_MESH_DISCOVER;
+                if (ctx->recuit)
+                    ctx->state = STATE_GATEWAY_TELINK_MESH_RECRUIT;
                 return 0;
             }
             return 0;
@@ -310,14 +308,14 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         dd->inlist = inlist;
         dd->_next = ctx->devices;
         ctx->devices = dd;
+        if (inlist)
+            ctx->recuit = 1;
     }
     if (STATE_GATEWAY_TELINK_MESH_FILTER == ctx->state)
     {
         if (!ctx->devices)
         {
-            ctx->state = STATE_GATEWAY_TELINK_MESH_DISCOVER;
-            if (ctx->recuit)
-                ctx->state = STATE_GATEWAY_TELINK_MESH_RECRUIT;
+            ctx->state = STATE_GATEWAY_TELINK_MESH_ADD_START;
             return 0;
         }
 
@@ -409,10 +407,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             if (kv_get("gateway", gateway, 32) > 0)
                 cJSON_AddItemToObject(attributes, "gatewayId", cJSON_CreateString(gateway));
         }
-        cJSON_AddItemToObject(attributes, "bleMac", cJSON_CreateString(id + 7));
-        char mac[12 + 1] = {0};
-        bin2hex(mac, network_net_mac(), 6);
-        cJSON_AddItemToObject(attributes, "wifiMac", cJSON_CreateString(mac));
+        cJSON_AddItemToObject(attributes, "mac", cJSON_CreateString(id + 7));
         cJSON_AddItemToObject(attributes, "addr", cJSON_CreateNumber(ctx->devices->addr));
         cJSON_AddItemToObject(attributes, "deviceType", cJSON_CreateNumber(category));
 
@@ -522,7 +517,6 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         ctx->devices = ctx->devices->_next;
         os_free(dd);
         ctx->state = STATE_GATEWAY_TELINK_MESH_FILTER;
-        ctx->recuit = 1;
     }
 
     return 0;
@@ -1297,6 +1291,9 @@ void ssdg_init(void)
             0
         };
         cJSON *attrs = cJSON_CreateObject();
+        char mac[12 + 1] = {0};
+        bin2hex(mac, network_net_mac(), 6);
+        cJSON_AddItemToObject(attrs, "wifiMac", cJSON_CreateString(mac));
         cJSON_AddItemToObject(attrs, "firmwareVersion", cJSON_CreateString(GATEWAY_FIREWARE_VERSION));
 
         cJSON *capabilities = cJSON_Parse("[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]");

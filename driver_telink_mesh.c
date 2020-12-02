@@ -88,6 +88,8 @@ enum
     STATE_TLM_PROVISION,
     STATE_TLM_DELAY,
 
+    STATE_TLMSM_RESTART,
+    STATE_TLMSM_WAIT_RESTART,
     STATE_TLMSM_NAME,
     STATE_TLMSM_WAIT_NAME,
     STATE_TLMSM_PASSWORD,
@@ -663,8 +665,109 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         os_memcmp(ctx->ltk, ltk, 16) || 
         effect != ctx->effect)
         return 0;
+    if (STATE_TLMSM_RESTART == _request->state)
+    {
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            return 0;
+        }
+
+        uint8_t cmd[3] = {0};
+        cmd[0] = MASTER_CMD_ADD_DEVICE;
+        usart_write(0, cmd, 3);
+        _request->state = STATE_TLMSM_WAIT_RESTART;
+        _timer = os_ticks();
+    }
+    if (STATE_TLMSM_WAIT_RESTART == _request->state)
+    {
+        if (os_ticks_from(_timer) > os_ticks_ms(1000))
+        {
+            SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLMSM_RESTART;
+                return 0;
+            }
+            os_free(_request);
+            _request = 0;
+            return -1;
+        }
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK && MASTER_CMD_ADD_DEVICE == packet->parameters[0])
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            int ret = packet->parameters[1];
+            _request->state = STATE_TLMSM_NAME;
+            if (1 == ret)
+                SigmaLogError(0, 0, "parameter error");
+            else if (2 == ret)
+                SigmaLogError(0, 0, "status error");
+
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            
+            if (ret)
+            {
+                if (2 == ret)
+                {
+                    _request->retry++;
+                    if (_request->retry < 10)
+                    {
+                        SigmaLogError(0, 0, "retry %d", _request->retry);
+                        _request->state = STATE_TLMSM_RESTART;
+                        return 0;
+                    }
+                }
+                os_free(_request);
+                _request = 0;
+                return -1;
+            }
+        }
+    }
     if (STATE_TLMSM_NAME == _request->state)
     {
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            return 0;
+        }
+
         uint8_t cmd[1 + 16 + 1] = {0};
         cmd[0] = MASTER_CMD_SET_GW_MESH_NAME;
         os_memcpy(cmd + 1, name, 16);
@@ -691,7 +794,11 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         TelinkUartPacket *packet = _packets, *prev = 0;
         while (packet)
         {
-            if (packet->cmd == SLAVE_CMD_ACK && MASTER_CMD_SET_GW_MESH_NAME == packet->parameters[0])
+            if (packet->cmd == SLAVE_CMD_ACK && 
+                (MASTER_CMD_SET_GW_MESH_NAME == packet->parameters[0] || 
+                 MASTER_CMD_SET_GW_MESH_PASSWORD == packet->parameters[0] ||
+                 MASTER_CMD_SET_GW_MESH_LTK == packet->parameters[0] ||
+                 MASTER_CMD_TAKE_EFFECT == packet->parameters[0]))
                 break;
             prev = packet;
             packet = packet->_next;
@@ -700,7 +807,6 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_PASSWORD;
-            _request->retry = 0;
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
             else if (2 == ret)
@@ -720,7 +826,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
                     if (_request->retry < 10)
                     {
                         SigmaLogError(0, 0, "retry %d", _request->retry);
-                        _request->state = STATE_TLMSM_NAME;
+                        _request->state = STATE_TLMSM_RESTART;
                         return 0;
                     }
                 }
@@ -732,6 +838,24 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
     }
     if (STATE_TLMSM_PASSWORD == _request->state)
     {
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            return 0;
+        }
+
         uint8_t cmd[1 + 16 + 1] = {0};
         cmd[0] = MASTER_CMD_SET_GW_MESH_PASSWORD;
         os_memcpy(cmd + 1, password, 16);
@@ -758,7 +882,11 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         TelinkUartPacket *packet = _packets, *prev = 0;
         while (packet)
         {
-            if (packet->cmd == SLAVE_CMD_ACK && MASTER_CMD_SET_GW_MESH_PASSWORD == packet->parameters[0])
+            if (packet->cmd == SLAVE_CMD_ACK && 
+                (MASTER_CMD_SET_GW_MESH_NAME == packet->parameters[0] || 
+                 MASTER_CMD_SET_GW_MESH_PASSWORD == packet->parameters[0] ||
+                 MASTER_CMD_SET_GW_MESH_LTK == packet->parameters[0] ||
+                 MASTER_CMD_TAKE_EFFECT == packet->parameters[0]))
                 break;
             prev = packet;
             packet = packet->_next;
@@ -767,7 +895,6 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_LTK;
-            _request->retry = 0;
             
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
@@ -782,6 +909,16 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
             
             if (ret)
             {
+                if (2 == ret)
+                {
+                    _request->retry++;
+                    if (_request->retry < 10)
+                    {
+                        SigmaLogError(0, 0, "retry %d", _request->retry);
+                        _request->state = STATE_TLMSM_RESTART;
+                        return 0;
+                    }
+                }
                 os_free(_request);
                 _request = 0;
                 return -1;
@@ -790,6 +927,24 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
     }
     if (STATE_TLMSM_LTK == _request->state)
     {
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            return 0;
+        }
+
         uint8_t cmd[1 + 16] = {0};
         cmd[0] = MASTER_CMD_SET_GW_MESH_LTK;
         os_memcpy(cmd + 1, ltk, 16);
@@ -816,7 +971,11 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         TelinkUartPacket *packet = _packets, *prev = 0;
         while (packet)
         {
-            if (packet->cmd == SLAVE_CMD_ACK && MASTER_CMD_SET_GW_MESH_LTK == packet->parameters[0])
+            if (packet->cmd == SLAVE_CMD_ACK && 
+                (MASTER_CMD_SET_GW_MESH_NAME == packet->parameters[0] || 
+                 MASTER_CMD_SET_GW_MESH_PASSWORD == packet->parameters[0] ||
+                 MASTER_CMD_SET_GW_MESH_LTK == packet->parameters[0] ||
+                 MASTER_CMD_TAKE_EFFECT == packet->parameters[0]))
                 break;
             prev = packet;
             packet = packet->_next;
@@ -825,7 +984,6 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
         {
             int ret = packet->parameters[1];
             _request->state = STATE_TLMSM_TAKE_EFFECT;
-            _request->retry = 0;
             if (1 == ret)
                 SigmaLogError(0, 0, "parameter error");
             else if (2 == ret)
@@ -839,6 +997,16 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
             
             if (ret)
             {
+                if (2 == ret)
+                {
+                    _request->retry++;
+                    if (_request->retry < 10)
+                    {
+                        SigmaLogError(0, 0, "retry %d", _request->retry);
+                        _request->state = STATE_TLMSM_RESTART;
+                        return 0;
+                    }
+                }
                 os_free(_request);
                 _request = 0;
                 return -1;
@@ -847,6 +1015,24 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
     }
     if (STATE_TLMSM_TAKE_EFFECT == _request->state)
     {
+        TelinkUartPacket *packet = _packets, *prev = 0;
+        while (packet)
+        {
+            if (packet->cmd == SLAVE_CMD_ACK)
+                break;
+            prev = packet;
+            packet = packet->_next;
+        }
+        if (packet)
+        {
+            if (prev)
+                prev->_next = packet->_next;
+            else
+                _packets = packet->_next;
+            os_free(packet);
+            return 0;
+        }
+
         uint8_t cmd[1 + 1] = {0};
         cmd[0] = MASTER_CMD_TAKE_EFFECT;
         cmd[1] = effect;
@@ -894,6 +1080,7 @@ int telink_mesh_set(const char *name, const char *password, const uint8_t *ltk, 
             else if (2 == effect)
             {
                 _request->state = STATE_TLMSM_UPDATE;
+                _timer = os_ticks();
                 ret = 0;
             }
             else
@@ -1844,9 +2031,16 @@ int telink_mesh_device_discover(void)
     }
     if (STATE_TLM_WAIT == _request->state)
     {
-        if (os_ticks_from(_timer) > os_ticks_ms(1000))
+        if (os_ticks_from(_timer) > os_ticks_ms(5000))
         {
             SigmaLogError(0, 0, "ack timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -1866,6 +2060,8 @@ int telink_mesh_device_discover(void)
             else
                 _packets = packet->_next;
             os_free(packet);
+
+
             os_free(_request);
             _request = 0;
             return 1;
@@ -2473,7 +2669,7 @@ int telink_mesh_device_kickout(uint16_t dst)
     }
     if (STATE_TLM_WAIT == _request->state)
     {
-        if (os_ticks_from(_timer) > os_ticks_ms(5000))
+        if (os_ticks_from(_timer) > os_ticks_ms(10000))
         {
             SigmaLogError(0, 0, "timeout");
             os_free(_request);
