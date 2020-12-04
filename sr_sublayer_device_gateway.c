@@ -104,6 +104,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
 
         if (ctx->whitelist)
             cJSON_Delete(ctx->whitelist);
+        ctx->whitelist = 0;
 
         return 1;
     }
@@ -127,6 +128,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
     {
         if (ctx->whitelist)
             cJSON_Delete(ctx->whitelist);
+        ctx->whitelist = 0;
 
         uint8_t seq = sll_seq();
         cJSON *packet = cJSON_CreateObject();

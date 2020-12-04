@@ -318,7 +318,7 @@ void telink_mesh_init(void)
     _sequence = os_rand();
     if (!_sequence)
         _sequence = 1;
-    _size = STATE_TLM_USART_OPEN;
+    _state = STATE_TLM_USART_OPEN;
 
     usart_init();
 }
