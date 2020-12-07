@@ -225,7 +225,9 @@ int linux_usart_write(uint8_t usart, const uint8_t *buffer, uint16_t size)
     {
         if (EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError(0, 0, "failed.fp:%d ret:%d %s(%u)", runtime->fp, ret, strerror(errno), errno);
+        SigmaLogError(0, 0, "failed.fp:%d buffer:%p size:%u ret:%d %s(%u)", runtime->fp, buffer, size, ret, strerror(errno), errno);
+        close(runtime->fp);
+        runtime->fp = -1;
     }
     if (ret)
         SigmaLogDebug(buffer, ret, "write: ");
@@ -251,7 +253,7 @@ int linux_usart_read(uint8_t usart, uint8_t *buffer, uint16_t size)
     {
         if (EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
-        SigmaLogError(0, 0, "failed.fp:%d ret:%d %s(%u)", runtime->fp, ret, strerror(errno), errno);
+        SigmaLogError(0, 0, "failed.fp:%d buffer:%p size:%u ret:%d %s(%u)", runtime->fp, buffer, size, ret, strerror(errno), errno);
         close(runtime->fp);
         runtime->fp = -1;
     }
