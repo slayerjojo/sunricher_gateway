@@ -89,7 +89,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         {
             ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
         }
-        else if (_timer_bind && os_ticks_from(_timer_bind) < os_ticks_ms(10000))
+        else if (_timer_bind && os_ticks_from(_timer_bind) < os_ticks_ms(30000))
         {
             cJSON *userKey = cJSON_GetObjectItem(payload, "userKey");
             if (userKey)
