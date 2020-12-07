@@ -1252,6 +1252,13 @@ static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
     cJSON_Delete(ep);
 }
 
+static void handle_gateway_bounded(void *ctx, uint8_t event, void *msg, int size)
+{
+    const char *client = msg;
+    
+    sld_profile_report(0, client, OPCODE_BIND_GATEWAY_REPORT, 0);
+}
+
 void ssdg_init(void)
 {
     telink_mesh_init();
@@ -1318,6 +1325,7 @@ void ssdg_init(void)
     sigma_event_listen(EVENT_TYPE_PACKET, handle_device_brightnesscontroller, 0);
     sigma_event_listen(EVENT_TYPE_PACKET, handle_device_colorcontroller, 0);
     sigma_event_listen(EVENT_TYPE_DEVICE_DELETE, handle_device_delete, 0);
+    sigma_event_listen(EVENT_TYPE_GATEWAY_BOUNDED, handle_gateway_bounded, 0);
 }
 
 void ssdg_update(void)
