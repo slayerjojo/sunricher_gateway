@@ -98,6 +98,8 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
                 sll_client_add(user->valuestring, key);
                 ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
                 ret = 16;
+                
+                sld_profile_report(0, owner, OPCODE_BIND_GATEWAY_REPORT, 0);
             }
         }
 
