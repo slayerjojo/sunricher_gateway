@@ -117,6 +117,16 @@ void sigma_console_update(void)
     }
 }
 
+int sigma_console_fp(void)
+{
+    if (SC_STATE_CONSOLE_SERVICE != _state)
+    {
+        SigmaLogError(0, 0, "console state error");
+        return -1;
+    }
+    return _fp_client;
+}
+
 void sigma_console_write(const char *fmt, ...)
 {
     if (SC_STATE_CONSOLE_SERVICE != _state)

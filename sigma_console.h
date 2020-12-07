@@ -13,6 +13,8 @@ typedef void (*ConsoleHandler)(const char *command, const char *parameters[], in
 void sigma_console_init(uint16_t port, ConsoleHandler handler);
 void sigma_console_update(void);
 
+int sigma_console_fp(void);
+
 void sigma_console_write(const char *fmt, ...);
 void sigma_console_close(void);
 

@@ -208,6 +208,9 @@ static void handle_console(const char *command, const char *parameters[], int co
         }
         if (!cJSON_GetObjectItem(msg, "user"))
             cJSON_AddItemToObject(msg, "user", cJSON_CreateString("server"));
+        if (!cJSON_GetObjectItem(msg, "fp"))
+            cJSON_AddItemToObject(msg, "fp", cJSON_CreateNumber(sigma_console_fp()));
+
         sigma_console_write("OK.");
         sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
         cJSON_Delete(msg);

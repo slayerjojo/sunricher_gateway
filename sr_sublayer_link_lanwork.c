@@ -96,7 +96,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
             {
                 hex2bin(key, userKey->valuestring, 32);
                 sll_client_add(user->valuestring, key);
-                ssll_auth(cJSON_GetObjectItem(packet, "fp") ? cJSON_GetObjectItem(packet, "fp")->valueint : 0, user->valuestring, key);
+                ssll_auth(cJSON_GetObjectItem(packet, "fp")->valueint, user->valuestring, key);
                 ret = 16;
             }
         }
