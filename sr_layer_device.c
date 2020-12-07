@@ -5,6 +5,7 @@
 #include "sr_opcode.h"
 #include "sigma_event.h"
 #include "sigma_log.h"
+#include "sigma_mission.h"
 #include "interface_os.h"
 #include "interface_kv.h"
 #include "hex.h"
@@ -147,11 +148,61 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
     }
 }
 
-static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
+typedef struct 
+{
+    uint32_t timer;
+    void *it;
+    char client[];
+}ContextDeviceSync;
+
+static int mission_device_sync(SigmaMission *mission)
+{
+    ContextDeviceSync *ctx = sigma_mission_extends(mission);
+
+    if (os_ticks_from(ctx->timer) < os_ticks_ms(200))
+        return 0;
+
+    const char *id = kv_list_iterator("devices", &(ctx->it));
+    if (!id)
+        return 1;
+
+    sld_profile_report(id, ctx->client, OPCODE_ADD_OR_UPDATE_REPORT, 0);
+    ctx->timer = os_ticks();
+    return 0;
+}
+
+static void handle_client_auth(void *context, uint8_t event, void *msg, int size)
 {
     char *id = (char *)msg;
 
-    sld_profile_report(0, id, OPCODE_BIND_GATEWAY_REPORT, 0);
+    sld_profile_report(0, id, OPCODE_ADD_OR_UPDATE_REPORT, 0);
+
+    ContextDeviceSync *ctx = 0;
+    SigmaMission *mission = 0;
+    SigmaMissionIterator it = {0};
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_DEVICE_SYNC != mission->type)
+            continue;
+        ctx = sigma_mission_extends(mission);
+        if (os_strcmp(ctx->client, id))
+            continue;
+        break;
+    }
+    if (mission)
+    {
+        kv_list_iterator_release(ctx->it);
+        sigma_mission_release(mission);
+    }
+    mission = sigma_mission_create(0, MISSION_TYPE_DEVICE_SYNC, mission_device_sync, sizeof(ContextDeviceSync));
+    if (!mission)
+    {
+        SigmaLogError(0, 0, "out of memory.");
+        return;
+    }
+    ctx = sigma_mission_extends(mission);
+    ctx->timer = os_ticks();
+    os_strcpy(ctx->client, id);
 }
 
 void sld_init(void)

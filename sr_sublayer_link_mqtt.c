@@ -44,7 +44,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *me
     do {
         uint8_t *packet = sll_headless_unpack(message->payload, &(message->payloadlen), _key);
     
-        SigmaLogAction(0, 0, "topic:%s message:%s", topicName, (char *)packet);
+        SigmaLogAction(0, 0, "topic:%s message:%.*s", topicName, message->payloadlen, (char *)packet);
 
         msg = cJSON_Parse((const char *)packet);
         if (!msg)
@@ -122,7 +122,7 @@ static int mission_mqtt_subscribe(SigmaMission *mission)
         sprintf(topic, "gateway/%s/%s/directive", _client_id, ctx->list + ctx->pos);
 
         int ret = 0;
-        if ((ret = MQTTAsync_subscribe(_client, ctx->list + ctx->pos, 0, &opts)) != MQTTASYNC_SUCCESS)
+        if ((ret = MQTTAsync_subscribe(_client, topic, 0, &opts)) != MQTTASYNC_SUCCESS)
         {
             SigmaLogError(0, 0, "MQTTAsync_subscribe %s failed.(ret:%d)", ctx->list + ctx->pos, ret);
             ctx->state = 0;
@@ -303,7 +303,7 @@ void onSend(void* context, MQTTAsync_successData* response)
 
 void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
-    SigmaLogAction(0, 0, "send to %s(seq:%u size:%d)", id, seq, size);
+    SigmaLogAction(0, 0, "send to %s(seq:%u size:%d flags:%08x) %.*s", id, seq, size, flags, size, (const char *)buffer);
 
     uint8_t key[32] = {0};
     if (sll_client_key(id, key) < 0)
@@ -332,9 +332,8 @@ void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, u
     else
         sprintf(topic, "gateway/%s/%s/event", _client_id, id);
 
-
     int ret = 0;
-	if ((ret = MQTTAsync_sendMessage(_client, id, &msg, &opts)) != MQTTASYNC_SUCCESS)
+	if ((ret = MQTTAsync_sendMessage(_client, topic, &msg, &opts)) != MQTTASYNC_SUCCESS)
 		SigmaLogError(0, 0, "MQTTAsync_sendMessage failed.(ret:%d)", ret);
     os_free(packet);
 }

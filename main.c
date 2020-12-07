@@ -206,6 +206,8 @@ static void handle_console(const char *command, const char *parameters[], int co
             sigma_console_write("JSON parse error.");
             return;
         }
+        if (!cJSON_GetObjectItem(msg, "user"))
+            cJSON_AddItemToObject(msg, "user", cJSON_CreateString("server"));
         sigma_console_write("OK.");
         sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
         cJSON_Delete(msg);

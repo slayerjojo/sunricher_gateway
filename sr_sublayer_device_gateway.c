@@ -272,17 +272,24 @@ static int mission_telink_mesh_add(SigmaMission *mission)
 
         ctx->timer = os_ticks();
 
-        cJSON *wl = ctx->whitelist->child;
-        while (wl)
+        cJSON *wl = 0;
+        inlist = 1;
+        if (ctx->whitelist)
         {
-            uint8_t m[6] = {0};
-            hex2bin(m, wl->valuestring, 12);
-            if (!os_memcmp(m, mac, 6))
-                break;
-            wl = wl->next;
+            wl = ctx->whitelist->child;
+            while (wl)
+            {
+                uint8_t m[6] = {0};
+                hex2bin(m, wl->valuestring, 12);
+                if (!os_memcmp(m, "\xff\xff\xff\xff\xff\xff", 6))
+                    break;
+                if (!os_memcmp(m, mac, 6))
+                    break;
+                wl = wl->next;
+            }
+            if (!wl)
+                inlist = 0;
         }
-        if (wl)
-            inlist = 1;
 
         DepotDevice *dd = ctx->devices;
         while (dd)
@@ -599,19 +606,10 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
 
     if (!os_strcmp(name->valuestring, OPCODE_GATEWAY_ADD_DEVICE_START))
     {
+        cJSON *list = 0;
         cJSON *payload = cJSON_GetObjectItem(packet, "payload");
-        if (!payload)
-        {
-            SigmaLogError(0, 0, "payload not found.");
-            return;
-        }
-
-        cJSON *list = cJSON_GetObjectItem(payload, "macList");
-        if (!list || !list->child)
-        {
-            SigmaLogError(0, 0, "macList not found.");
-            return;
-        }
+        if (payload)
+            list = cJSON_GetObjectItem(payload, "macList");
 
         SigmaLogDebug(0, 0, "ble start scan");
 
@@ -640,7 +638,9 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
         ctx->timer = os_ticks();
         if (ctx->whitelist)
             cJSON_Delete(ctx->whitelist);
-        ctx->whitelist = cJSON_Duplicate(list, 1);
+        ctx->whitelist = 0;
+        if (list)
+            ctx->whitelist = cJSON_Duplicate(list, 1);
     }
     else if (!os_strcmp(name->valuestring, OPCODE_GATEWAY_ADD_DEVICE_STOP))
     {
