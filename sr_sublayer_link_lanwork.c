@@ -117,9 +117,16 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         cJSON_AddItemToObject(resp, "payload", payload);
         char *rsp = cJSON_PrintUnformatted(resp);
         if (ret < 0)
-            ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
+        {
+            if (cJSON_GetObjectItem(packet, "fp"))
+                ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
+            else
+                SigmaLogError(0, 0, "fp is null.%s", rsp);
+        }
         else
+        {
             ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
+        }
         os_free(rsp);
         cJSON_Delete(resp);
     }
