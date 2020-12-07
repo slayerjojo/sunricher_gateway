@@ -184,6 +184,7 @@ int sll_client_add_direct(const char *id, uint8_t *key)
         size += os_strlen(id) + 1;
         kv_set("clients", ids, size);
     }
+    os_free(ids);
     
     kv_set(id, key, 16);
     return 0;

@@ -173,6 +173,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
             cJSON_AddItemToArray(users, c);
             pos += os_strlen(client + pos) + 1;
         }
+        os_free(client);
 
         cJSON_AddItemToObject(resp, "users", users);
         char *rsp = cJSON_PrintUnformatted(resp);

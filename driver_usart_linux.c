@@ -252,6 +252,8 @@ int linux_usart_read(uint8_t usart, uint8_t *buffer, uint16_t size)
         if (EAGAIN == errno || EWOULDBLOCK == errno)
             return 0;
         SigmaLogError(0, 0, "failed.fp:%d ret:%d %s(%u)", runtime->fp, ret, strerror(errno), errno);
+        close(runtime->fp);
+        runtime->fp = -1;
     }
     if (ret > 0)
         SigmaLogDebug(buffer, ret, "recv: ");
