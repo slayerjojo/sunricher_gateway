@@ -177,6 +177,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
 
         cJSON_AddItemToObject(resp, "users", users);
         char *rsp = cJSON_PrintUnformatted(resp);
+        SigmaLogAction(0, 0, "send to %s: %s", user->valuestring, rsp);
         ssll_send(user->valuestring, seq, rsp, os_strlen(rsp));
         os_free(rsp);
         cJSON_Delete(resp);
