@@ -145,9 +145,13 @@ void linux_kv_list_remove(const char *key, const char *item)
     }
     if (pos < size)
     {
-        if (size > os_strlen(item) + 1)
+        if (pos + os_strlen(item) + 1 < size)
         {
-            os_memcpy(list + pos, list + pos + os_strlen(item) + 1, size - os_strlen(item) - 1);
+            os_memcpy(list + pos, list + pos + os_strlen(item) + 1, size - pos - os_strlen(item) - 1);
+            kv_set(key, list, size - os_strlen(item) - 1);
+        }
+        else if (pos)
+        {
             kv_set(key, list, size - os_strlen(item) - 1);
         }
         else
