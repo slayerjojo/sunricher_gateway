@@ -612,7 +612,7 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
                     continue;
 
                 ctx = sigma_mission_extends(mission);
-                if (ctx->scene)
+                if (ctx->scene != sid)
                     continue;
 
                 break;
