@@ -194,7 +194,7 @@ static void handle_client_auth(void *context, uint8_t event, void *msg, int size
         kv_list_iterator_release(ctx->it);
         sigma_mission_release(mission);
     }
-    mission = sigma_mission_create(0, MISSION_TYPE_DEVICE_SYNC, mission_device_sync, sizeof(ContextDeviceSync));
+    mission = sigma_mission_create(0, MISSION_TYPE_DEVICE_SYNC, mission_device_sync, sizeof(ContextDeviceSync) + size + 1);
     if (!mission)
     {
         SigmaLogError(0, 0, "out of memory.");
