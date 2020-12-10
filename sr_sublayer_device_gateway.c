@@ -418,7 +418,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         }
         cJSON_AddItemToObject(attributes, "mac", cJSON_CreateString(id + 7));
         cJSON_AddItemToObject(attributes, "addr", cJSON_CreateNumber(ctx->devices->addr));
-        cJSON_AddItemToObject(attributes, "deviceType", cJSON_CreateNumber(category));
+        cJSON_AddItemToObject(attributes, "category", cJSON_CreateNumber(category));
 
         const char *caps = "[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]";
         if (0x0111 == category)
