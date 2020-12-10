@@ -155,16 +155,17 @@ static int mission_scene_update(SigmaMission *mission)
         }
         cJSON_Delete(ctx->apply);
         cJSON_Delete(ctx->old);
-        cJSON_AddItemToObject(ctx->scenes, "actions", ctx->final);
 
         if (ctx->final->child)
-        {
-            kv_list_add("scenes", ctx->id);
+            cJSON_AddItemToObject(ctx->scenes, "actions", ctx->final);
 
-            char key[64] = {0};
-            sprintf(key, "telink_scene_%s", ctx->id);
-            kv_set(key, &(ctx->scene), 1);
-            
+        kv_list_add("scenes", ctx->id);
+
+        char key[64] = {0};
+        sprintf(key, "telink_scene_%s", ctx->id);
+        kv_set(key, &(ctx->scene), 1);
+       
+        {
             char *str = cJSON_PrintUnformatted(ctx->scenes);
             if (kv_set(ctx->id, str, os_strlen(str)) < 0)
                 SigmaLogError(0, 0, "save scene %s failed.", ctx->id);
@@ -182,10 +183,12 @@ static int mission_scene_update(SigmaMission *mission)
         cJSON_AddItemToObject(packet, "header", header);
         cJSON_AddItemToObject(packet, "scene", ctx->scenes);
 
-        char *str = cJSON_PrintUnformatted(packet);
-        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
-        os_free(str);
-        cJSON_Delete(packet);
+        {
+            char *str = cJSON_PrintUnformatted(packet);
+            sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
+            os_free(str);
+            cJSON_Delete(packet);
+        }
 
         return 1;
     }
