@@ -39,7 +39,27 @@ static void connlost(void *context, char *cause)
 
 int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *message)
 {
-    
+    const char *start = os_strstr(topicName, "/");
+    if (!start)
+    {
+        SigmaLogError(0, 0, "topic %s format error.", topicName);
+        return 0;
+    }
+    start = os_strstr(start + 1, "/");
+    if (!start)
+    {
+        SigmaLogError(0, 0, "topic %s format error.", topicName);
+        return 0;
+    }
+    const char *end = os_strstr(start + 1, "/");
+    if (!end)
+    {
+        SigmaLogError(0, 0, "topic %s format error.", topicName);
+        return 0;
+    }
+    char user[33] = {0};
+    os_memcpy(user, start + 1, (uint64_t)end - (uint64_t)start - 1 > 32 ? 32 : ((uint64_t)end - (uint64_t)start - 1));
+
     cJSON *msg = 0;
     do {
         uint8_t *packet = sll_headless_unpack(message->payload, &(message->payloadlen), _key);
@@ -58,7 +78,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTAsync_message *me
             SigmaLogError(0, 0, "packet header error.raw:%s", (const char *)(packet + 1));
             break;
         }
-        cJSON_AddItemToObject(msg, "user", cJSON_CreateString(_server));
+        cJSON_AddItemToObject(msg, "user", cJSON_CreateString(user));
         sigma_event_dispatch(EVENT_TYPE_PACKET, msg, 0);
     } while (0);
     if (msg)
