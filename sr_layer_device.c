@@ -255,7 +255,7 @@ void sld_create(const char *id, const char *name, const char *category, const ch
     cJSON_AddItemToObject(device, "endpointId", cJSON_CreateString(id));
     cJSON_AddItemToObject(device, "friendlyName", cJSON_CreateString(name));
     cJSON_AddItemToObject(device, "additionalAttributes", cJSON_Duplicate(attributes, 1));
-    cJSON_AddItemToObject(device, "deviceType", cJSON_CreateString(category));
+    cJSON_AddItemToObject(device, "category", cJSON_CreateString(category));
     cJSON *conns = cJSON_CreateArray();
     int i = 0;
     while (connections[i])
