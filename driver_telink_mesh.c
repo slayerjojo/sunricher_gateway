@@ -355,7 +355,8 @@ void telink_mesh_update(void)
             if (_buffer[pos] > 35)
             {
                 SigmaLogError(0, 0, "length error.(>35)");
-                pos++;
+                pos = 0;
+                _size = 0;
                 continue;
             }
             if (_size < _buffer[pos])
