@@ -126,7 +126,7 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
         return;
     }
 
-    if (!os_strcmp(name->valuestring, OPCODE_DEVICE_STATE_REPORT))
+    if (!os_strcmp(name->valuestring, OPCODE_DEVICE_REPORT_STATE))
     {
         cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
         if (!ep)
