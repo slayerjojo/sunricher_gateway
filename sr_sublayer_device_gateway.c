@@ -466,14 +466,14 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                 {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
                 {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
                 {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
-                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"rgb\"],\"reportable\":true}\
             ]";
         else if (0x0134 == category)
             caps = "[\
                 {\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true},\
                 {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
                 {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
-                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true},\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"rgb\"],\"reportable\":true},\
                 {\"type\":\"WhiteController\",\"version\":\"1\",\"properties\":[\"white\"],\"reportable\":true}\
             ]";
         else if (0x0135 == category)
@@ -482,7 +482,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                 {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
                 {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
                 {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true},\
-                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"rgb\"],\"reportable\":true}\
             ]";
         else if (0x0136 == category)
             caps = "[\
@@ -496,7 +496,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
                 {\"type\":\"PowerController\",\"version\":\"1\",\"properties\":[\"powerState\"],\"reportable\":true},\
                 {\"type\":\"BrightnessController\",\"version\":\"1\",\"properties\":[\"brightness\"],\"reportable\":true},\
                 {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true},\
-                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"color\"],\"reportable\":true}\
+                {\"type\":\"ColorController\",\"version\":\"1\",\"properties\":[\"rgb\"],\"reportable\":true}\
             ]";
         else if (0x0138 == category)
             caps = "[\
@@ -885,11 +885,10 @@ static int mission_colorcontroller_operate(SigmaMission *mission)
         if (ret > 0)
         {
             cJSON *color = cJSON_CreateObject();
-            cJSON_AddItemToObject(color, "mode", cJSON_CreateString("RGB"));
             cJSON_AddItemToObject(color, "red", cJSON_CreateNumber(ctx->rgb.r));
             cJSON_AddItemToObject(color, "green", cJSON_CreateNumber(ctx->rgb.g));
             cJSON_AddItemToObject(color, "blue", cJSON_CreateNumber(ctx->rgb.b));
-            sld_property_set(ctx->device, "ColorController", "color", color);
+            sld_property_set(ctx->device, "ColorController", "rgb", color);
             sld_property_report(ctx->device, "ChangeReport");
         }
 
@@ -1155,15 +1154,8 @@ static void handle_device_colorcontroller(void *ctx, uint8_t event, void *msg, i
             return;
         }
 
-        cJSON *color = cJSON_GetObjectItem(payload, "color");
+        cJSON *color = cJSON_GetObjectItem(payload, "rgb");
         if (!color )
-        {
-            SigmaLogError(0, 0, "payload.color not found.");
-            return;
-        }
-
-        cJSON *mode = cJSON_GetObjectItem(color, "mode");
-        if (!os_strcmp(mode->valuestring, "RGB"))
         {
             ContextPCOperate *ctx = 0;
             SigmaMissionIterator it = {0};
