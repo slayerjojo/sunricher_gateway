@@ -746,6 +746,8 @@ typedef struct
     {
         uint8_t onoff;
         uint8_t brightness;
+        uint8_t white;
+        uint8_t percentage;
         struct {
             uint8_t r;
             uint8_t g;
@@ -889,6 +891,102 @@ static int mission_colorcontroller_operate(SigmaMission *mission)
             cJSON_AddItemToObject(color, "green", cJSON_CreateNumber(ctx->rgb.g));
             cJSON_AddItemToObject(color, "blue", cJSON_CreateNumber(ctx->rgb.b));
             sld_property_set(ctx->device, "ColorController", "rgb", color);
+            sld_property_report(ctx->device, "ChangeReport");
+        }
+
+        cJSON_Delete(ep);
+
+        return 1;
+    }
+    while(0);
+
+    cJSON_Delete(ep);
+
+    return 0;
+}
+
+static int mission_whitecontroller_operate(SigmaMission *mission)
+{
+    ContextPCOperate *ctx = sigma_mission_extends(mission);
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
+    {
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
+    }
+
+    do
+    {
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
+        if (!attrs)
+        {
+            SigmaLogError(0, 0, "device %s not found", ctx->device);
+            break;
+        }
+
+        cJSON *addr = cJSON_GetObjectItem(attrs, "addr");
+        if (!addr)
+        {
+            SigmaLogError(0, 0, "device %s addr not found", ctx->device);
+            break;
+        }
+
+        int ret = telink_mesh_light_ctcolor(addr->valueint, ctx->white);
+        if (!ret)
+            break;
+
+        if (ret > 0)
+        {
+            sld_property_set(ctx->device, "WhiteController", "white", cJSON_CreateNumber(ctx->white));
+            sld_property_report(ctx->device, "ChangeReport");
+        }
+
+        cJSON_Delete(ep);
+
+        return 1;
+    }
+    while(0);
+
+    cJSON_Delete(ep);
+
+    return 0;
+}
+
+static int mission_color_temperature_controller_operate(SigmaMission *mission)
+{
+    ContextPCOperate *ctx = sigma_mission_extends(mission);
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
+    {
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
+    }
+
+    do
+    {
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
+        if (!attrs)
+        {
+            SigmaLogError(0, 0, "device %s not found", ctx->device);
+            break;
+        }
+
+        cJSON *addr = cJSON_GetObjectItem(attrs, "addr");
+        if (!addr)
+        {
+            SigmaLogError(0, 0, "device %s addr not found", ctx->device);
+            break;
+        }
+
+        int ret = telink_mesh_light_ctcolor(addr->valueint, ctx->percentage);
+        if (!ret)
+            break;
+
+        if (ret > 0)
+        {
+            sld_property_set(ctx->device, "ColorTemperatureController", "percentage", cJSON_CreateNumber(ctx->percentage));
             sld_property_report(ctx->device, "ChangeReport");
         }
 
@@ -1155,7 +1253,7 @@ static void handle_device_colorcontroller(void *ctx, uint8_t event, void *msg, i
         }
 
         cJSON *color = cJSON_GetObjectItem(payload, "rgb");
-        if (!color )
+        if (color )
         {
             ContextPCOperate *ctx = 0;
             SigmaMissionIterator it = {0};
@@ -1189,6 +1287,232 @@ static void handle_device_colorcontroller(void *ctx, uint8_t event, void *msg, i
                 ctx->rgb.g = cJSON_GetObjectItem(color, "green")->valueint;
             if (cJSON_GetObjectItem(color, "blue"))
                 ctx->rgb.b = cJSON_GetObjectItem(color, "blue")->valueint;
+        }
+    }
+    else if (!os_strcmp(name->valuestring, OPCODE_COLORCONTROLLER_SETRGB))
+    {
+        cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
+        if (!ep)
+        {
+            SigmaLogError(0, 0, "endpoint not found.");
+            return;
+        }
+
+        cJSON *id = cJSON_GetObjectItem(ep, "endpointId");
+        if (!id)
+        {
+            SigmaLogError(0, 0, "endpoint.endpointId not found.");
+            return;
+        }
+
+        cJSON *payload = cJSON_GetObjectItem(packet, "payload");
+        if (!payload)
+        {
+            SigmaLogError(0, 0, "payload not found.");
+            return;
+        }
+
+        cJSON *color = cJSON_GetObjectItem(payload, "rgb");
+        if (color )
+        {
+            ContextPCOperate *ctx = 0;
+            SigmaMissionIterator it = {0};
+            SigmaMission *mission = 0;
+            while ((mission = sigma_mission_iterator(&it)))
+            {
+                if (MISSION_TYPE_DEVICE_COLORCONTROLLER_OPERATE == mission->type)
+                    continue;
+                ctx = sigma_mission_extends(mission);
+                if (os_strcmp(ctx->device, id->valuestring))
+                    continue;
+                break;
+            }
+            if (mission)
+                sigma_mission_release(mission);
+            mission = sigma_mission_create(
+                0, 
+                MISSION_TYPE_DEVICE_COLORCONTROLLER_OPERATE, 
+                mission_colorcontroller_operate, 
+                sizeof(ContextPCOperate) + os_strlen(id->valuestring) + 1);
+            if (!mission)
+            {
+                SigmaLogError(0, 0, "out of memory");
+                return;
+            }
+            ctx = sigma_mission_extends(mission);
+            os_strcpy(ctx->device, id->valuestring);
+            if (cJSON_GetObjectItem(color, "red"))
+                ctx->rgb.r = cJSON_GetObjectItem(color, "red")->valueint;
+            if (cJSON_GetObjectItem(color, "green"))
+                ctx->rgb.g = cJSON_GetObjectItem(color, "green")->valueint;
+            if (cJSON_GetObjectItem(color, "blue"))
+                ctx->rgb.b = cJSON_GetObjectItem(color, "blue")->valueint;
+        }
+    }
+}
+
+static void handle_device_whitecontroller(void *ctx, uint8_t event, void *msg, int size)
+{
+    cJSON *packet = (cJSON *)msg;
+
+    cJSON *header = cJSON_GetObjectItem(packet, "header");
+    if (!header)
+    {
+        SigmaLogError(0, 0, "header not found.");
+        return;
+    }
+
+    cJSON *method = cJSON_GetObjectItem(header, "method");
+    if (!method || os_strcmp(method->valuestring, "Directive"))
+        return;
+
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
+    if (!ns || os_strcmp(ns->valuestring, "WhiteController"))
+        return;
+
+    cJSON *name = cJSON_GetObjectItem(header, "name");
+    if (!name)
+    {
+        SigmaLogError(0, 0, "name not found.");
+        return;
+    }
+
+    if (!os_strcmp(name->valuestring, OPCODE_WHITECONTROLLER_SETWHITE))
+    {
+        cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
+        if (!ep)
+        {
+            SigmaLogError(0, 0, "endpoint not found.");
+            return;
+        }
+
+        cJSON *id = cJSON_GetObjectItem(ep, "endpointId");
+        if (!id)
+        {
+            SigmaLogError(0, 0, "endpoint.endpointId not found.");
+            return;
+        }
+
+        cJSON *payload = cJSON_GetObjectItem(packet, "payload");
+        if (!payload)
+        {
+            SigmaLogError(0, 0, "payload not found.");
+            return;
+        }
+
+        cJSON *color = cJSON_GetObjectItem(payload, "value");
+        if (color)
+        {
+            ContextPCOperate *ctx = 0;
+            SigmaMissionIterator it = {0};
+            SigmaMission *mission = 0;
+            while ((mission = sigma_mission_iterator(&it)))
+            {
+                if (MISSION_TYPE_DEVICE_WHITECONTROLLER_OPERATE == mission->type)
+                    continue;
+                ctx = sigma_mission_extends(mission);
+                if (os_strcmp(ctx->device, id->valuestring))
+                    continue;
+                break;
+            }
+            if (mission)
+                sigma_mission_release(mission);
+            mission = sigma_mission_create(
+                0, 
+                MISSION_TYPE_DEVICE_WHITECONTROLLER_OPERATE, 
+                mission_whitecontroller_operate, 
+                sizeof(ContextPCOperate) + os_strlen(id->valuestring) + 1);
+            if (!mission)
+            {
+                SigmaLogError(0, 0, "out of memory");
+                return;
+            }
+            ctx = sigma_mission_extends(mission);
+            os_strcpy(ctx->device, id->valuestring);
+            ctx->white = color->valueint;
+        }
+    }
+}
+
+static void handle_device_color_temperature_controller(void *ctx, uint8_t event, void *msg, int size)
+{
+    cJSON *packet = (cJSON *)msg;
+
+    cJSON *header = cJSON_GetObjectItem(packet, "header");
+    if (!header)
+    {
+        SigmaLogError(0, 0, "header not found.");
+        return;
+    }
+
+    cJSON *method = cJSON_GetObjectItem(header, "method");
+    if (!method || os_strcmp(method->valuestring, "Directive"))
+        return;
+
+    cJSON *ns = cJSON_GetObjectItem(header, "namespace");
+    if (!ns || os_strcmp(ns->valuestring, "ColorTemperatureController"))
+        return;
+
+    cJSON *name = cJSON_GetObjectItem(header, "name");
+    if (!name)
+    {
+        SigmaLogError(0, 0, "name not found.");
+        return;
+    }
+
+    if (!os_strcmp(name->valuestring, OPCODE_COLORTEMPERATURECONTROLLER_SETPERCENTAGE))
+    {
+        cJSON *ep = cJSON_GetObjectItem(packet, "endpoint");
+        if (!ep)
+        {
+            SigmaLogError(0, 0, "endpoint not found.");
+            return;
+        }
+
+        cJSON *id = cJSON_GetObjectItem(ep, "endpointId");
+        if (!id)
+        {
+            SigmaLogError(0, 0, "endpoint.endpointId not found.");
+            return;
+        }
+
+        cJSON *payload = cJSON_GetObjectItem(packet, "payload");
+        if (!payload)
+        {
+            SigmaLogError(0, 0, "payload not found.");
+            return;
+        }
+
+        cJSON *percentage = cJSON_GetObjectItem(payload, "percentage");
+        if (percentage)
+        {
+            ContextPCOperate *ctx = 0;
+            SigmaMissionIterator it = {0};
+            SigmaMission *mission = 0;
+            while ((mission = sigma_mission_iterator(&it)))
+            {
+                if (MISSION_TYPE_DEVICE_COLORTEMPERATURECONTROLLER_OPERATE == mission->type)
+                    continue;
+                ctx = sigma_mission_extends(mission);
+                if (os_strcmp(ctx->device, id->valuestring))
+                    continue;
+                break;
+            }
+            if (mission)
+                sigma_mission_release(mission);
+            mission = sigma_mission_create(
+                0, 
+                MISSION_TYPE_DEVICE_COLORTEMPERATURECONTROLLER_OPERATE, 
+                mission_color_temperature_controller_operate, 
+                sizeof(ContextPCOperate) + os_strlen(id->valuestring) + 1);
+            if (!mission)
+            {
+                SigmaLogError(0, 0, "out of memory");
+                return;
+            }
+            ctx = sigma_mission_extends(mission);
+            os_strcpy(ctx->device, id->valuestring);
+            ctx->percentage = percentage->valueint;
         }
     }
 }
@@ -1316,6 +1640,8 @@ void ssdg_init(void)
     sigma_event_listen(EVENT_TYPE_PACKET, handle_device_powercontroller, 0);
     sigma_event_listen(EVENT_TYPE_PACKET, handle_device_brightnesscontroller, 0);
     sigma_event_listen(EVENT_TYPE_PACKET, handle_device_colorcontroller, 0);
+    sigma_event_listen(EVENT_TYPE_PACKET, handle_device_whitecontroller, 0);
+    sigma_event_listen(EVENT_TYPE_PACKET, handle_device_color_temperature_controller, 0);
     sigma_event_listen(EVENT_TYPE_DEVICE_DELETE, handle_device_delete, 0);
     sigma_event_listen(EVENT_TYPE_GATEWAY_BOUNDED, handle_gateway_bounded, 0);
 }
