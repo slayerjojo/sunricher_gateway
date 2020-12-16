@@ -200,7 +200,7 @@ void ssll_init(void)
 void ssll_update(void)
 {
     int ret = 0;
-    uint8_t ip[4] = {192, 168, 123, 255};
+    uint8_t ip[4] = {192, 168, 124, 255};
     uint16_t port;
 
     if (_bcast.fp < 0)

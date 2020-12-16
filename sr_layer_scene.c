@@ -341,14 +341,14 @@ static int mission_scene_update(SigmaMission *mission)
                 else if (!os_strcmp(type->valuestring, "ColorController") && !os_strcmp(p->valuestring, "rgb"))
                 {
                     cJSON *value = cJSON_GetObjectItem(property, "value");
-                    rgb[0] = cJSON_GetObjectItem(value, "r")->valueint;
-                    rgb[1] = cJSON_GetObjectItem(value, "g")->valueint;
-                    rgb[2] = cJSON_GetObjectItem(value, "b")->valueint;
+                    rgb[0] = cJSON_GetObjectItem(value, "red")->valueint;
+                    rgb[1] = cJSON_GetObjectItem(value, "green")->valueint;
+                    rgb[2] = cJSON_GetObjectItem(value, "blue")->valueint;
                 }
                 else if (!os_strcmp(type->valuestring, "PowerController") && !os_strcmp(p->valuestring, "powerState"))
                 {
                     cJSON *value = cJSON_GetObjectItem(property, "value");
-                    onoff = value->valueint;
+                    onoff = !os_strcmp(value->valuestring, "ON");
                 }
                 property = property->next;
             }
