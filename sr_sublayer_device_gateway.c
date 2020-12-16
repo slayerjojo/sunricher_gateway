@@ -562,7 +562,7 @@ static int mission_discover_endpoints(SigmaMission *mission)
         cJSON_AddItemToObject(packet, "endpoint", cJSON_CreateNull());
 
         cJSON *pl = cJSON_CreateObject();
-        cJSON_AddItemToObject(pl, "isEnd", cJSON_CreateTrue());
+        cJSON_AddItemToObject(pl, "theEnd", cJSON_CreateTrue());
         cJSON_AddItemToObject(packet, "payload", pl);
         char *str = cJSON_PrintUnformatted(packet);
         sll_send(ctx->client, seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
@@ -571,7 +571,7 @@ static int mission_discover_endpoints(SigmaMission *mission)
         return 1;
     }
     cJSON *payload = cJSON_CreateObject();
-    cJSON_AddItemToObject(payload, "isEnd", cJSON_CreateFalse());
+    cJSON_AddItemToObject(payload, "theEnd", cJSON_CreateFalse());
     sld_profile_report(device, ctx->client, OPCODE_DISCOVER_ENDPOINTS_REPORT, payload);
     cJSON_Delete(payload);
 

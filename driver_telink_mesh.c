@@ -473,8 +473,10 @@ void telink_mesh_update(void)
             pos += _buffer[pos];
         }
         if (0 < pos && pos < _size)
+        {
             os_memcpy(_buffer, &(_buffer[pos]), _size - pos);
-        _size -= pos;
+            _size -= pos;
+        }
     }
 
     TelinkUartPacket *packet = _packets, *prev = 0;
