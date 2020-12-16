@@ -296,7 +296,7 @@ static int mission_scene_update(SigmaMission *mission)
                 ctx->state = STATE_TYPE_SCENE_UPDATE_DONE;
                 break;
             }
-            uint8_t luminance = 0, rgb[3] = {0};
+            uint8_t onoff = 0, luminance = 0, rgb[3] = {0};
             {
                 cJSON *v = sld_property_get(epid->valuestring, "BrightnessController", "brightness");
                 if (v)
@@ -306,25 +306,18 @@ static int mission_scene_update(SigmaMission *mission)
                 }
             }
             {
-                cJSON *v = sld_property_get(epid->valuestring, "ColorController", "color");
+                cJSON *v = sld_property_get(epid->valuestring, "ColorController", "rgb");
                 if (v)
                 {
-                    cJSON *mode = cJSON_GetObjectItem(v, "mode");
-                    if (mode)
-                    {
-                        if (!os_strcmp(mode->valuestring, "RGB"))
-                        {
-                            cJSON *r = cJSON_GetObjectItem(v, "red");
-                            if (r)
-                                rgb[0] = r->valueint;
-                            cJSON *g = cJSON_GetObjectItem(v, "green");
-                            if (g)
-                                rgb[1] = g->valueint;
-                            cJSON *b = cJSON_GetObjectItem(v, "blue");
-                            if (b)
-                                rgb[2] = b->valueint;
-                        }
-                    }
+                    cJSON *r = cJSON_GetObjectItem(v, "red");
+                    if (r)
+                        rgb[0] = r->valueint;
+                    cJSON *g = cJSON_GetObjectItem(v, "green");
+                    if (g)
+                        rgb[1] = g->valueint;
+                    cJSON *b = cJSON_GetObjectItem(v, "blue");
+                    if (b)
+                        rgb[2] = b->valueint;
                     cJSON_Delete(v);
                 }
             }
@@ -345,15 +338,17 @@ static int mission_scene_update(SigmaMission *mission)
                     cJSON *value = cJSON_GetObjectItem(property, "value");
                     luminance = value->valueint;
                 }
-                else if (!os_strcmp(type->valuestring, "ColorController") && !os_strcmp(p->valuestring, "color"))
+                else if (!os_strcmp(type->valuestring, "ColorController") && !os_strcmp(p->valuestring, "rgb"))
                 {
                     cJSON *value = cJSON_GetObjectItem(property, "value");
-                    if (!os_strcmp(cJSON_GetObjectItem(value, "mode")->valuestring, "RGB"))
-                    {
-                        rgb[0] = cJSON_GetObjectItem(value, "r")->valueint;
-                        rgb[1] = cJSON_GetObjectItem(value, "g")->valueint;
-                        rgb[2] = cJSON_GetObjectItem(value, "b")->valueint;
-                    }
+                    rgb[0] = cJSON_GetObjectItem(value, "r")->valueint;
+                    rgb[1] = cJSON_GetObjectItem(value, "g")->valueint;
+                    rgb[2] = cJSON_GetObjectItem(value, "b")->valueint;
+                }
+                else if (!os_strcmp(type->valuestring, "PowerController") && !os_strcmp(p->valuestring, "powerState"))
+                {
+                    cJSON *value = cJSON_GetObjectItem(property, "value");
+                    onoff = value->valueint;
                 }
                 property = property->next;
             }
