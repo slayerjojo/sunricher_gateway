@@ -3919,9 +3919,11 @@ typedef struct
     uint8_t scene;
     uint8_t luminance;
     uint8_t rgb[3];
+    uint8_t ctw;
+    uint16_t duration;
 }TRSceneAdd;
 
-int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t *rgb)
+int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t *rgb, uint8_t ctw, uint16_t duration)
 {
     if (_request && TELINK_REQUEST_SCENE_ADD != _request->type)
         return 0;
@@ -3942,13 +3944,15 @@ int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t
         ctx->scene = scene;
         ctx->luminance = luminance;
         os_memcpy(ctx->rgb, rgb, 3);
+        ctx->ctw = ctw;
+        ctx->duration = duration;
     }
     ctx = (TRSceneAdd *)(_request + 1);
-    if (ctx->dst != dst || ctx->scene != scene || ctx->luminance != luminance || os_memcmp(ctx->rgb, rgb, 3))
+    if (ctx->dst != dst || ctx->scene != scene || ctx->luminance != luminance || os_memcmp(ctx->rgb, rgb, 3) || ctx->ctw != ctw || ctx->duration != duration)
         return 0;
     if (STATE_TLM_REQUEST == _request->state)
     {
-        uint8_t cmd[10 + sizeof(TelinkMeshPacket) + 6] = {0};
+        uint8_t cmd[10 + sizeof(TelinkMeshPacket) + 6 + 1 + 2] = {0};
         cmd[0] = 0x00;
         cmd[1] = 0x02;
         cmd[2] = 0x14;
@@ -3977,7 +3981,10 @@ int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t
         p->payload[1] = scene;
         p->payload[2] = luminance;
         os_memcpy(&(p->payload[3]), rgb, 3);
-        usart_write(0, cmd, 10 + sizeof(TelinkMeshPacket) + 6);
+        p->payload[6] = ctw;
+        p->payload[7] = duration >> 0;
+        p->payload[8] = duration >> 8;
+        usart_write(0, cmd, 10 + sizeof(TelinkMeshPacket) + 6 + 1 + 2);
         _request->state = STATE_TLM_WAIT;
         _timer = os_ticks();
     }

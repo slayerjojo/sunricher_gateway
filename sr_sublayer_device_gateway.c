@@ -381,7 +381,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         if (!ret)
             return 0;
         if (ret < 0)
-            SigmaLogError(0, 0, "telink_mesh_device_kickout failed.(ret:%d device:%04x)", ret, ctx->devices->addr);
+            SigmaLogError(0, 0, "telink_mesh_device_kickout failed.(ret:%d device:%02x)", ret, ctx->devices->addr);
 
         ctx->map[ctx->devices->addr / 8] |= (1 << ctx->devices->addr % 8);
 
@@ -398,7 +398,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             return 0;
         if (ret < 0)
         {
-            SigmaLogError(0, 0, "tmes_device_type failed.(ret:%d device:%d)", ret, ctx->devices->addr);
+            SigmaLogError(0, 0, "tmes_device_type failed.(ret:%d device:%02x)", ret, ctx->devices->addr);
             ctx->state = STATE_GATEWAY_TELINK_MESH_KICKOUT;
             return 0;
         }

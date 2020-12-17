@@ -296,7 +296,8 @@ static int mission_scene_update(SigmaMission *mission)
                 ctx->state = STATE_TYPE_SCENE_UPDATE_DONE;
                 break;
             }
-            uint8_t onoff = 0, luminance = 0, rgb[3] = {0};
+            uint8_t onoff = 0, luminance = 0, rgb[3] = {0}, ctw = 0;
+            uint16_t duration = 0;
             {
                 cJSON *v = sld_property_get(epid->valuestring, "BrightnessController", "brightness");
                 if (v)
@@ -345,14 +346,31 @@ static int mission_scene_update(SigmaMission *mission)
                     rgb[1] = cJSON_GetObjectItem(value, "green")->valueint;
                     rgb[2] = cJSON_GetObjectItem(value, "blue")->valueint;
                 }
+                else if (!os_strcmp(type->valuestring, "WhiteController") && !os_strcmp(p->valuestring, "white"))
+                {
+                    cJSON *value = cJSON_GetObjectItem(property, "value");
+                    ctw = value->valueint;
+                }
+                else if (!os_strcmp(type->valuestring, "ColorTemperatureController") && !os_strcmp(p->valuestring, "percentage"))
+                {
+                    cJSON *value = cJSON_GetObjectItem(property, "value");
+                    ctw = value->valueint;
+                }
                 else if (!os_strcmp(type->valuestring, "PowerController") && !os_strcmp(p->valuestring, "powerState"))
                 {
                     cJSON *value = cJSON_GetObjectItem(property, "value");
                     onoff = !os_strcmp(value->valuestring, "ON");
                 }
+                else if (!os_strcmp(type->valuestring, "Duration") && !os_strcmp(p->valuestring, "seconds"))
+                {
+                    cJSON *value = cJSON_GetObjectItem(property, "value");
+                    duration = value->valueint;
+                }
                 property = property->next;
             }
-            int ret = telink_mesh_scene_add(addr->valueint, ctx->scene, luminance, rgb);
+            if (!onoff)
+                luminance = 0;
+            int ret = telink_mesh_scene_add(addr->valueint, ctx->scene, luminance, rgb, ctw, duration);
             if (ret > 0)
             {
                 cJSON *apply = cJSON_DetachItemFromArray(ctx->apply, 0);
