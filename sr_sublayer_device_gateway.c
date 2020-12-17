@@ -208,6 +208,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         {
             if (ctx->stop || os_ticks_from(ctx->timer) > os_ticks_ms(3000))
             {
+                os_memset(ctx->map, 0, 32);
                 const char *device = 0;
                 void *it = 0;
                 while ((device = kv_list_iterator("devices", &it)))
@@ -522,6 +523,8 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         cJSON_Delete(attributes);
         cJSON_Delete(capabilities);
         
+        ctx->map[ctx->devices->addr / 8] |= 1 << (ctx->devices->addr % 8);
+
         DepotDevice *dd = ctx->devices;
         ctx->devices = ctx->devices->_next;
         os_free(dd);
