@@ -382,6 +382,9 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             return 0;
         if (ret < 0)
             SigmaLogError(0, 0, "telink_mesh_device_kickout failed.(ret:%d device:%04x)", ret, ctx->devices->addr);
+
+        ctx->map[ctx->devices->addr / 8] |= (1 << ctx->devices->addr % 8);
+
         DepotDevice *dd = ctx->devices;
         ctx->devices = ctx->devices->_next;
         os_free(dd);
