@@ -472,10 +472,14 @@ void telink_mesh_update(void)
             usart_packet(_buffer[pos + 1], &(_buffer[pos + 2]), _buffer[pos] - 2);
             pos += _buffer[pos];
         }
-        if (0 < pos && pos < _size)
+        if (0 < pos)
         {
-            os_memcpy(_buffer, &(_buffer[pos]), _size - pos);
-            _size -= pos;
+            if (pos < _size)
+                os_memcpy(_buffer, &(_buffer[pos]), _size - pos);
+            if (pos <= _size)
+                _size -= pos;
+            if (pos > _size)
+                _size = 0;
         }
     }
 
