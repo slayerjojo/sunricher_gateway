@@ -67,6 +67,11 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
     cJSON *name = cJSON_GetObjectItem(header, "name");
     if (!os_strcmp(name->valuestring, OPCODE_BIND_GATEWAY))
     {
+        if (!cJSON_GetObjectItem(packet, "fp"))
+        {
+            SigmaLogError(0, 0, "fp not found.");
+            return;
+        }
         cJSON *payload = cJSON_GetObjectItem(packet, "payload");
         if (!payload)
         {
@@ -120,10 +125,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         char *rsp = cJSON_PrintUnformatted(resp);
         if (ret < 0)
         {
-            if (cJSON_GetObjectItem(packet, "fp"))
-                ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
-            else
-                SigmaLogError(0, 0, "fp is null.%s", rsp);
+            ssll_raw(cJSON_GetObjectItem(packet, "fp")->valueint, key, seq, rsp, os_strlen(rsp));
         }
         else
         {
@@ -137,7 +139,7 @@ static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
         cJSON *user = cJSON_GetObjectItem(packet, "user");
         if (!user)
         {
-            SigmaLogError(0, 0, "userId not found(fp:%d).", cJSON_GetObjectItem(packet, "fp")->valueint);
+            SigmaLogError(0, 0, "userId not found.");
             return;
         }
         char owner[33] = {0};

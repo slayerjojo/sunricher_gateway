@@ -680,7 +680,7 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
             ep = sld_load(gateway);
             if (!ep)
             {
-                SigmaLogError(0, 0, "device %d not found.", gateway);
+                SigmaLogError(0, 0, "gateway %s not found.", gateway);
                 break;
             }
 
