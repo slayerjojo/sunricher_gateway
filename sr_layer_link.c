@@ -194,3 +194,9 @@ char *sll_client_list(uint32_t *size)
 {
     return kv_acquire("clients", size);
 }
+
+int sll_client_remove(const char *id)
+{
+    kv_list_remove("clients", id);
+    kv_delete(id);
+}

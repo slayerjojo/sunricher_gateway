@@ -1540,37 +1540,71 @@ static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
     const char *device = (const char *)msg;
 
     cJSON *ep = sld_load(device);
-    if (ep)
+    do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
-        if (attrs)
+        if (!ep)
         {
-            cJSON *addr = cJSON_GetObjectItem(attrs, "addr");
-            if (addr)
-            {
-                SigmaMission *mission = 0;
-                SigmaMissionIterator it = {0};
-                while ((mission = sigma_mission_iterator(&it)))
-                {
-                    if (MISSION_TYPE_TELINK_MESH_DEVICE_KICKOUT != mission->type)
-                        continue;
-                    uint16_t *ctx = sigma_mission_extends(mission);
-                    if (*ctx != addr->valueint)
-                        continue;
-                    break;
-                }
-                if (!mission)
-                {
-                    mission = sigma_mission_create(0, MISSION_TYPE_TELINK_MESH_DEVICE_KICKOUT, mission_device_kickout, sizeof(uint16_t));
-                    if (!mission)
-                        SigmaLogError(0, 0, "out of memory.");
-                    if (mission)
-                        *(uint16_t *)sigma_mission_extends(mission) = addr->valueint;
-                }
-            }
+            SigmaLogError(0, 0, "device %s not found.", device);
+            break;
+        }
+        cJSON *category = cJSON_GetObjectItem(ep, "category");
+        if (!category)
+        {
+            SigmaLogError(0, 0, "device %s category not found.", device);
+            break;
+        }
+        if (!os_strcmp(category->valuestring, "SR_GATEWAY"))
+            break;
+        cJSON *connections = cJSON_GetObjectItem(ep, "connections");
+        if (!connections)
+        {
+            SigmaLogError(0, 0, "device %s connections not found.", device);
+            break;
+        }
+        cJSON *conn = connections->child;
+        while (conn)
+        {
+            if (conn->type == cJSON_String && !os_strcmp(conn->valuestring, "TELINK_BLE"))
+                break;
+            conn = conn->next;
+        }
+        if (!conn)
+            break;
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
+        if (!attrs)
+        {
+            SigmaLogError(0, 0, "device %s additionalAttributes not found.", device);
+            break;
+        }
+        cJSON *addr = cJSON_GetObjectItem(attrs, "addr");
+        if (!addr)
+        {
+            SigmaLogError(0, 0, "device %s additionalAttributes.addr not found.", device);
+            break;
+        }
+        
+        SigmaMission *mission = 0;
+        SigmaMissionIterator it = {0};
+        while ((mission = sigma_mission_iterator(&it)))
+        {
+            if (MISSION_TYPE_TELINK_MESH_DEVICE_KICKOUT != mission->type)
+                continue;
+            uint16_t *ctx = sigma_mission_extends(mission);
+            if (*ctx != addr->valueint)
+                continue;
+            break;
+        }
+        if (!mission)
+        {
+            mission = sigma_mission_create(0, MISSION_TYPE_TELINK_MESH_DEVICE_KICKOUT, mission_device_kickout, sizeof(uint16_t));
+            if (!mission)
+                SigmaLogError(0, 0, "out of memory.");
+            if (mission)
+                *(uint16_t *)sigma_mission_extends(mission) = addr->valueint;
         }
     }
-                    
+    while(0);
+    
     cJSON_Delete(ep);
 }
 

@@ -36,5 +36,6 @@ char *sll_client_list(uint32_t *size);
 int sll_client_key(const char *id, uint8_t *key);
 int sll_client_add(const char *id, uint8_t *key);
 int sll_client_add_direct(const char *id, uint8_t *key);
+int sll_client_remove(const char *id);
 
 #endif

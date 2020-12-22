@@ -96,7 +96,22 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
 
         sigma_event_dispatch(EVENT_TYPE_DEVICE_DELETE, epid->valuestring, os_strlen(epid->valuestring));
 
-        sld_delete(epid->valuestring);
+        char gateway[33] = {0};
+        if (kv_get("gateway", gateway, 32) > 0)
+        {
+            if (!os_strcmp(gateway, epid->valuestring))
+            {
+                cJSON *user = cJSON_GetObjectItem(packet, "user");
+                if (user && os_strcmp(user->valuestring, "server"))
+                {
+                    sll_client_remove(user->valuestring);
+                }
+            }
+            else
+            {
+                sld_delete(epid->valuestring);
+            }
+        }
     }
 }
 
@@ -274,6 +289,19 @@ void sld_create(const char *id, const char *name, const char *category, const ch
 
 void sld_delete(const char *id)
 {
+    char gateway[33] = {0};
+    if (kv_get("gateway", gateway, 32) < 0)
+    {
+        SigmaLogError(0, 0, "gateway not found");
+        return;
+    }
+
+    if (!os_strcmp(gateway, id))
+    {
+        SigmaLogError(0, 0, "gateway can't be delete.");
+        return;
+    }
+
     kv_delete(id);
 
     kv_list_remove("devices", id);
