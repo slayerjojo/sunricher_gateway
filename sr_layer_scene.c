@@ -101,7 +101,7 @@ static int mission_scene_update(SigmaMission *mission)
 
     if (STATE_TYPE_SCENE_UPDATE_INIT == ctx->state)
     {
-        if (!ctx->apply->child)
+        if (!ctx->apply || !ctx->apply->child)
         {
             ctx->state = STATE_TYPE_SCENE_UPDATE_DONE;
             if (ctx->old && ctx->old->child)
