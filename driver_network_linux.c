@@ -74,6 +74,7 @@ int linux_network_tcp_accept(int fp, uint8_t *ip, uint16_t *port)
     ip[1] = (uint8_t)(sa.sin_addr.s_addr >> 16);
     ip[2] = (uint8_t)(sa.sin_addr.s_addr >> 8);
     ip[3] = (uint8_t)(sa.sin_addr.s_addr >> 0);
+    SigmaLogAction(0, 0, "tcp client connected.(fp:%d ip:%u.%u.%u.%u port:%u)", conn, ip[0], ip[1], ip[2], ip[3], *port);
     return conn;
 }
 
