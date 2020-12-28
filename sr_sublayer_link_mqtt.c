@@ -32,6 +32,14 @@ static void connlost(void *context, char *cause)
     SigmaLogError(0, 0, "disconnected.%s", cause ? cause : "");
 
     MQTTAsync_destroy(&_client);
+    
+    SigmaMission *mission = 0;
+    SigmaMissionIterator it = {0};
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_MQTT_SUBSCRIBE == mission->type)
+            sigma_mission_release(mission);
+    }
 
     _state = STATE_SSLM_RECONNECT;
     _timer = os_ticks();
