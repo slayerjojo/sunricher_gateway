@@ -294,7 +294,10 @@ void sslm_start(const char *id)
 void sslm_report(uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
     if (STATE_SSLM_CONNECTED != _state)
+    {
+        SigmaLogError(0, 0, "mqtt not connected");
         return;
+    }
 
     uint32_t length = 0;
     char *clients = sll_client_list(&length);
@@ -318,6 +321,14 @@ void onSendFailure(void* context, MQTTAsync_failureData* response)
 
     MQTTAsync_destroy(_client);
     
+    SigmaMission *mission = 0;
+    SigmaMissionIterator it = {0};
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_MQTT_SUBSCRIBE == mission->type)
+            sigma_mission_release(mission);
+    }
+
     _state = STATE_SSLM_RECONNECT;
     _timer = os_ticks();
 }
@@ -331,6 +342,12 @@ void onSend(void* context, MQTTAsync_successData* response)
 
 void sslm_send(const char *id, uint8_t seq, const void *buffer, uint32_t size, uint32_t flags)
 {
+    if (STATE_SSLM_CONNECTED != _state)
+    {
+        SigmaLogError(0, 0, "mqtt not connected");
+        return;
+    }
+
     SigmaLogAction(0, 0, "send to %s(seq:%u size:%d flags:%08x) %.*s", id, seq, size, flags, size, (const char *)buffer);
 
     uint8_t key[32] = {0};
