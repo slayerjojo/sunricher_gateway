@@ -20,7 +20,7 @@ OBJS = $(foreach x,$(SRCEXTS), $(patsubst ./%$(x),$(OBJDIR)%.o,$(filter %$(x),$(
 endif
 OBJDIRS	= $(sort $(dir $(OBJS)))
 
-.PHONY : all clean docs
+.PHONY : all clean cleankv
 
 all : $(PROGRAM)
 
@@ -33,3 +33,6 @@ $(PROGRAM) : $(OBJS)
 
 clean :
 	$(RM) $(OBJDIR)/* $(PROGRAM)
+
+cleankv :
+	$(RM) kv/*
