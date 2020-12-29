@@ -876,6 +876,8 @@ static int mission_brightnesscontroller_operate(SigmaMission *mission)
 
         if (ret > 0)
         {
+            if (ctx->brightness)
+                sld_property_set(ctx->device, "PowerController", "powerState", cJSON_CreateString("ON"));
             sld_property_set(ctx->device, "BrightnessController", "brightness", cJSON_CreateNumber(ctx->brightness));
             sld_property_report(ctx->device, "ChangeReport");
         }
