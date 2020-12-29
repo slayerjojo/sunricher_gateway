@@ -12,6 +12,7 @@
 enum {
     STATE_SSLM_IDLE = 0,
     STATE_SSLM_INIT,
+    STATE_SSLM_CONNECT,
     STATE_SSLM_RECONNECT,
     STATE_SSLM_CONNECTED,
 };
@@ -31,8 +32,6 @@ static void connlost(void *context, char *cause)
 
     SigmaLogError(0, 0, "disconnected.%s", cause ? cause : "");
 
-    MQTTAsync_destroy(&_client);
-    
     SigmaMission *mission = 0;
     SigmaMissionIterator it = {0};
     while ((mission = sigma_mission_iterator(&it)))
@@ -238,15 +237,16 @@ void sslm_update(void)
         if (ret != MQTTASYNC_SUCCESS)
         {
             SigmaLogError(0, 0, "MQTTAsync_create failed.(ret:%d)", ret);
-            _state = STATE_SSLM_RECONNECT;
-            _timer = os_ticks();
             return;
         }
-        ret = MQTTAsync_setCallbacks(_client, _client, connlost, msgarrvd, NULL);
+        _state = STATE_SSLM_CONNECT;
+    }
+    if (STATE_SSLM_CONNECT == _state)
+    {
+        int ret = MQTTAsync_setCallbacks(_client, _client, connlost, msgarrvd, NULL);
         if (ret != MQTTASYNC_SUCCESS)
         {
             SigmaLogError(0, 0, "MQTTAsync_setCallbacks failed.(ret:%d)", ret);
-            MQTTAsync_destroy(&_client);
             _state = STATE_SSLM_RECONNECT;
             _timer = os_ticks();
             return;
@@ -262,7 +262,6 @@ void sslm_update(void)
         if (ret != MQTTASYNC_SUCCESS)
         {
             SigmaLogError(0, 0, "MQTTAsync_connect failed.(ret:%d)", ret);
-            MQTTAsync_destroy(&_client);
             _state = STATE_SSLM_RECONNECT;
             _timer = os_ticks();
             return;
@@ -273,7 +272,7 @@ void sslm_update(void)
     if (STATE_SSLM_RECONNECT == _state)
     {
         if (os_ticks_from(_timer) > os_ticks_ms(5000))
-            _state = STATE_SSLM_INIT;
+            _state = STATE_SSLM_CONNECTED;
     }
 }
 
@@ -319,8 +318,6 @@ void onSendFailure(void* context, MQTTAsync_failureData* response)
 
     SigmaLogError(0, 0, "send failed.(token:%d code:%d)", response->token, response->code);
 
-    MQTTAsync_destroy(_client);
-    
     SigmaMission *mission = 0;
     SigmaMissionIterator it = {0};
     while ((mission = sigma_mission_iterator(&it)))

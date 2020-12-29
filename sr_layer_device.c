@@ -137,7 +137,7 @@ static void handle_device_basic(void *ctx, uint8_t event, void *msg, int size)
     cJSON *name = cJSON_GetObjectItem(header, "name");
     if (!name)
     {
-        SigmaLogError(0, 0, "name not found.");
+        SigmaLogAction(0, 0, "name not found.");
         return;
     }
 

@@ -517,6 +517,38 @@ static int mission_telink_mesh_add(SigmaMission *mission)
             ]";
         cJSON *capabilities = cJSON_Parse(caps);
         sld_create(id, name_device(category), name_category(category), connections, attributes, capabilities);
+
+        cJSON *cap = capabilities->child;
+        while (cap)
+        {
+            if (!os_strcmp(cJSON_GetObjectItem(cap, "type")->valuestring, "EndpointHealth"))
+            {
+                sld_property_set(id, "EndpointHealth", "connectivity", cJSON_CreateString("OK"));
+            }
+            else if (!os_strcmp(cJSON_GetObjectItem(cap, "type")->valuestring, "PowerController"))
+            {
+                sld_property_set(id, "PowerController", "powerState", cJSON_CreateString("ON"));
+            }
+            else if (!os_strcmp(cJSON_GetObjectItem(cap, "type")->valuestring, "BrightnessController"))
+            {
+                sld_property_set(id, "BrightnessController", "brightness", cJSON_CreateNumber(0));
+            }
+            else if (!os_strcmp(cJSON_GetObjectItem(cap, "type")->valuestring, "ColorController"))
+            {
+                cJSON *color = cJSON_CreateObject();
+                cJSON_AddItemToObject(color, "red", cJSON_CreateNumber(0));
+                cJSON_AddItemToObject(color, "green", cJSON_CreateNumber(0));
+                cJSON_AddItemToObject(color, "blue", cJSON_CreateNumber(0));
+                sld_property_set(id, "ColorController", "rgb", color);
+            }
+            else if (!os_strcmp(cJSON_GetObjectItem(cap, "type")->valuestring, "ColorTemperatureController"))
+            {
+                sld_property_set(id, "ColorTemperatureController", "percentage", cJSON_CreateNumber(0.0));
+            }
+
+            cap = cap->next;
+        }
+
         sld_profile_report(id, 0, OPCODE_ADD_OR_UPDATE_REPORT, 0);
 
         char sht[7 + 4 + 1] = {0};
@@ -1664,6 +1696,7 @@ void ssdg_init(void)
         cJSON *capabilities = cJSON_Parse("[{\"type\":\"EndpointHealth\",\"version\":\"1\",\"properties\":[\"connectivity\"],\"reportable\":true}]");
 
         sld_create(id, "SR BLE Gateway", "SR_GATEWAY", connections, attrs, capabilities);
+        sld_property_set(id, "EndpointHealth", "connectivity", cJSON_CreateString("OK"));
         kv_set("gateway", id, os_strlen(id));
         
         sld_profile_report(id, 0, OPCODE_BIND_GATEWAY_REPORT, 0);
