@@ -550,6 +550,7 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         }
 
         sld_profile_report(id, 0, OPCODE_ADD_OR_UPDATE_REPORT, 0);
+        sld_property_report(id, "ChangeReport");
 
         char sht[7 + 4 + 1] = {0};
         sprintf(sht, "tladdr_%04x", ctx->devices->addr);
@@ -1702,6 +1703,7 @@ void ssdg_init(void)
         kv_set("gateway", id, os_strlen(id));
         
         sld_profile_report(id, 0, OPCODE_BIND_GATEWAY_REPORT, 0);
+        sld_property_report(id, "ChangeReport");
 
         cJSON_Delete(attrs);
         cJSON_Delete(capabilities);

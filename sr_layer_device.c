@@ -465,8 +465,6 @@ void sld_property_set(const char *device, const char *type, const char *name, cJ
     cJSON_AddItemToObject(property, "value", value);
     sld_property_save(device, properties);
     cJSON_Delete(properties);
-
-    sld_property_report(device, OPCODE_DEVICE_CHANGE_REPORT);
 }
 
 cJSON *sld_property_get(const char *device, const char *type, const char *name)
