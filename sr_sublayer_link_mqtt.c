@@ -109,6 +109,12 @@ static void onSubscribe(void* context, MQTTAsync_successData* response)
 {
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)context;
 
+    if (!ctx->list)
+    {
+        ctx->state = 0;
+        return;
+    }
+
     SigmaLogAction(0, 0, "MQTTAsync_subscribe %s successed.", ctx->list + ctx->pos);
     
     ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;

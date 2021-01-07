@@ -156,7 +156,7 @@ static int mission_scene_update(SigmaMission *mission)
         cJSON_Delete(ctx->apply);
         cJSON_Delete(ctx->old);
 
-        if (ctx->final->child)
+        if (ctx->final && ctx->final->child)
             cJSON_AddItemToObject(ctx->scenes, "actions", ctx->final);
 
         kv_list_add("scenes", ctx->id);
@@ -451,7 +451,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while(0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     else if (STATE_TYPE_SCENE_UPDATE_KICKOUT_GROUP == ctx->state)
     {
@@ -513,7 +513,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while(0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     return 0;
 }
