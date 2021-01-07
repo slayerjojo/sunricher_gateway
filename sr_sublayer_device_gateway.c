@@ -71,9 +71,26 @@ typedef struct
     DepotDevice *devices;
 }ContextTelinkMeshAdd;
 
-static int mission_telink_mesh_add(SigmaMission *mission)
+static int mission_telink_mesh_add(SigmaMission *mission, uint8_t cleanup)
 {
     ContextTelinkMeshAdd *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        if (ctx->whitelist)
+            cJSON_Delete(ctx->whitelist);
+        ctx->whitelist = 0;
+
+        while (ctx->devices)
+        {
+            DepotDevice *dd = ctx->devices;
+            ctx->devices = ctx->devices->_next;
+
+            os_free(dd);
+        }
+
+        return 1;
+    }
 
     if (STATE_GATEWAY_TELINK_MESH_FAMILY == ctx->state)
     {
@@ -102,10 +119,6 @@ static int mission_telink_mesh_add(SigmaMission *mission)
         }
         while (0);
 
-        if (ctx->whitelist)
-            cJSON_Delete(ctx->whitelist);
-        ctx->whitelist = 0;
-
         return 1;
     }
     if (STATE_GATEWAY_TELINK_MESH_ADD_START == ctx->state)
@@ -126,10 +139,6 @@ static int mission_telink_mesh_add(SigmaMission *mission)
     }
     if (STATE_GATEWAY_TELINK_MESH_ADD_STOP == ctx->state)
     {
-        if (ctx->whitelist)
-            cJSON_Delete(ctx->whitelist);
-        ctx->whitelist = 0;
-
         uint8_t seq = sll_seq();
         cJSON *packet = cJSON_CreateObject();
         cJSON *header = cJSON_CreateObject();
@@ -577,9 +586,15 @@ typedef struct
     char client[];
 }ContextDiscoverEndpoints;
 
-static int mission_discover_endpoints(SigmaMission *mission)
+static int mission_discover_endpoints(SigmaMission *mission, uint8_t cleanup)
 {
     ContextDiscoverEndpoints *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        kv_list_iterator_release(ctx->it);
+        return 1;
+    }
 
     if (os_ticks_from(ctx->timer) < 200)
         return 0;
@@ -588,8 +603,6 @@ static int mission_discover_endpoints(SigmaMission *mission)
     const char *device = kv_list_iterator("devices", &(ctx->it));
     if (!device)
     {
-        kv_list_iterator_release(ctx->it);
-
         uint8_t seq = sll_seq();
         cJSON *packet = cJSON_CreateObject();
         cJSON *header = cJSON_CreateObject();
@@ -765,10 +778,7 @@ static void handle_gateway_discover(void *ctx, uint8_t event, void *msg, int siz
             break;
         }
         if (mission)
-        {
-            kv_list_iterator_release(ctx->it);
             sigma_mission_release(mission);
-        }
         mission = sigma_mission_create(0, MISSION_TYPE_DISCOVER_ENDPOINTS, mission_discover_endpoints, sizeof(ContextDiscoverEndpoints) + os_strlen(user->valuestring) + 1);
         if (!mission)
         {
@@ -795,27 +805,26 @@ typedef struct
             uint8_t b;
         }rgb;
     };
-    cJSON *ep;
     char device[];
 }ContextPCOperate;
 
-static int mission_powercontroller_operate(SigmaMission *mission)
+static int mission_powercontroller_operate(SigmaMission *mission, uint8_t cleanup)
 {
     ContextPCOperate *ctx = sigma_mission_extends(mission);
 
-    if (!ctx->ep)
+    if (cleanup)
+        return 1;
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
     {
-        ctx->ep = sld_load(ctx->device);
-        if (!ctx->ep)
-        {
-            SigmaLogError(0, 0, "device %s not found.", ctx->device);
-            return 1;
-        }
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
     }
 
     do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ctx->ep, "additionalAttributes");
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
         if (!attrs)
         {
             SigmaLogError(0, 0, "device %s not found", ctx->device);
@@ -839,32 +848,34 @@ static int mission_powercontroller_operate(SigmaMission *mission)
             sld_property_report(ctx->device, "ChangeReport");
         }
 
-        cJSON_Delete(ctx->ep);
+        cJSON_Delete(ep);
 
         return 1;
     }
     while(0);
 
+    cJSON_Delete(ep);
+
     return 0;
 }
 
-static int mission_brightnesscontroller_operate(SigmaMission *mission)
+static int mission_brightnesscontroller_operate(SigmaMission *mission, uint8_t cleanup)
 {
     ContextPCOperate *ctx = sigma_mission_extends(mission);
 
-    if (!ctx->ep)
+    if (cleanup)
+        return 1;
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
     {
-        ctx->ep = sld_load(ctx->device);
-        if (!ctx->ep)
-        {
-            SigmaLogError(0, 0, "device %s not found.", ctx->device);
-            return 1;
-        }
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
     }
 
     do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ctx->ep, "additionalAttributes");
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
         if (!attrs)
         {
             SigmaLogError(0, 0, "device %s not found", ctx->device);
@@ -890,32 +901,34 @@ static int mission_brightnesscontroller_operate(SigmaMission *mission)
             sld_property_report(ctx->device, "ChangeReport");
         }
 
-        cJSON_Delete(ctx->ep);
+        cJSON_Delete(ep);
 
         return 1;
     }
     while(0);
 
+    cJSON_Delete(ep);
+
     return 0;
 }
 
-static int mission_colorcontroller_operate(SigmaMission *mission)
+static int mission_colorcontroller_operate(SigmaMission *mission, uint8_t cleanup)
 {
     ContextPCOperate *ctx = sigma_mission_extends(mission);
 
-    if (!ctx->ep)
+    if (cleanup)
+        return 1;
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
     {
-        ctx->ep = sld_load(ctx->device);
-        if (!ctx->ep)
-        {
-            SigmaLogError(0, 0, "device %s not found.", ctx->device);
-            return 1;
-        }
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
     }
 
     do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ctx->ep, "additionalAttributes");
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
         if (!attrs)
         {
             SigmaLogError(0, 0, "device %s not found", ctx->device);
@@ -943,32 +956,34 @@ static int mission_colorcontroller_operate(SigmaMission *mission)
             sld_property_report(ctx->device, "ChangeReport");
         }
 
-        cJSON_Delete(ctx->ep);
+        cJSON_Delete(ep);
 
         return 1;
     }
     while(0);
 
+    cJSON_Delete(ep);
+
     return 0;
 }
 
-static int mission_whitecontroller_operate(SigmaMission *mission)
+static int mission_whitecontroller_operate(SigmaMission *mission, uint8_t cleanup)
 {
     ContextPCOperate *ctx = sigma_mission_extends(mission);
 
-    if (!ctx->ep)
+    if (cleanup)
+        return 1;
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
     {
-        ctx->ep = sld_load(ctx->device);
-        if (!ctx->ep)
-        {
-            SigmaLogError(0, 0, "device %s not found.", ctx->device);
-            return 1;
-        }
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
     }
 
     do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ctx->ep, "additionalAttributes");
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
         if (!attrs)
         {
             SigmaLogError(0, 0, "device %s not found", ctx->device);
@@ -992,32 +1007,34 @@ static int mission_whitecontroller_operate(SigmaMission *mission)
             sld_property_report(ctx->device, "ChangeReport");
         }
 
-        cJSON_Delete(ctx->ep);
+        cJSON_Delete(ep);
 
         return 1;
     }
     while(0);
 
+    cJSON_Delete(ep);
+
     return 0;
 }
 
-static int mission_color_temperature_controller_operate(SigmaMission *mission)
+static int mission_color_temperature_controller_operate(SigmaMission *mission, uint8_t cleanup)
 {
     ContextPCOperate *ctx = sigma_mission_extends(mission);
 
-    if (!ctx->ep)
+    if (cleanup)
+        return 1;
+
+    cJSON *ep = sld_load(ctx->device);
+    if (!ep)
     {
-        ctx->ep = sld_load(ctx->device);
-        if (!ctx->ep)
-        {
-            SigmaLogError(0, 0, "device %s not found.", ctx->device);
-            return 1;
-        }
+        SigmaLogError(0, 0, "device %s not found.", ctx->device);
+        return 1;
     }
 
     do
     {
-        cJSON *attrs = cJSON_GetObjectItem(ctx->ep, "additionalAttributes");
+        cJSON *attrs = cJSON_GetObjectItem(ep, "additionalAttributes");
         if (!attrs)
         {
             SigmaLogError(0, 0, "device %s not found", ctx->device);
@@ -1041,11 +1058,13 @@ static int mission_color_temperature_controller_operate(SigmaMission *mission)
             sld_property_report(ctx->device, "ChangeReport");
         }
 
-        cJSON_Delete(ctx->ep);
+        cJSON_Delete(ep);
 
         return 1;
     }
     while(0);
+
+    cJSON_Delete(ep);
 
     return 0;
 }
@@ -1566,9 +1585,12 @@ static void handle_device_color_temperature_controller(void *ctx, uint8_t event,
     }
 }
 
-static int mission_device_kickout(SigmaMission *mission)
+static int mission_device_kickout(SigmaMission *mission, uint8_t cleanup)
 {
     uint16_t *addr = sigma_mission_extends(mission);
+
+    if (cleanup)
+        return 1;
 
     int ret = telink_mesh_device_kickout(*addr);
     if (!ret)

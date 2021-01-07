@@ -131,14 +131,25 @@ static void onSubscribeFailure(void* context, MQTTAsync_failureData* response)
     ctx->state = 0;
 }
 
-static int mission_mqtt_subscribe(SigmaMission *mission)
+static int mission_mqtt_subscribe(SigmaMission *mission, uint8_t cleanup)
 {
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        if (ctx->list)
+        {
+            os_free(ctx->list);
+            ctx->list = 0;
+        }
+        return 1;
+    }
 
     if (ctx->pos >= ctx->size)
     {
         sigma_event_dispatch(EVENT_TYPE_CLIENT_AUTH, (void *)_server, os_strlen(_server));
         os_free(ctx->list);
+        ctx->list = 0;
         return 1;
     }
     if (0 == ctx->state)
@@ -206,11 +217,11 @@ static void onConnect(void* context, MQTTAsync_successData* response)
         }
     }
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
-    if (ctx->list)
-        os_free(ctx->list);
     ctx->state = 0;
     ctx->pos = 0;
     ctx->size = size;
+    if (ctx->list)
+        os_free(ctx->list);
     ctx->list = list;
 }
 

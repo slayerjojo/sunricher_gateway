@@ -15,9 +15,15 @@ typedef struct
     char client[];
 }ContextDiscoverRooms;
 
-static int mission_discover_rooms(SigmaMission *mission)
+static int mission_discover_rooms(SigmaMission *mission, uint8_t cleanup)
 {
     ContextDiscoverRooms *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        kv_list_iterator_release(ctx->it);
+        return 1;
+    }
 
     if (os_ticks_from(ctx->timer) < os_ticks_ms(200))
         return 0;
