@@ -229,9 +229,70 @@ static void handle_room(void *ctx, uint8_t event, void *msg, int size)
     }
 }
 
+static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
+{
+    const char *device = (const char *)msg;
+
+    void *it = 0;
+    const char *id = 0;
+    while ((id = kv_list_iterator("rooms", &it)))
+    {
+        char *kv = kv_acquire(id, 0);
+        if (!kv)
+        {
+            SigmaLogError(0, 0, "room %s not found.", kv);
+            continue;
+        }
+        cJSON *room = cJSON_Parse(kv);
+        if (!room)
+        {
+            SigmaLogError(0, 0, "room %s format error.data:%s", room, kv);
+            os_free(kv);
+            continue;
+        }
+        cJSON *endpoints = cJSON_GetObjectItem(room, "endpoints");
+        if (!endpoints)
+            continue;
+        int pos = cJSON_GetArraySize(endpoints) - 1;
+        while (pos >= 0)
+        {
+            cJSON *epid = cJSON_GetArrayItem(endpoints, pos);
+            if (!epid)
+                break;
+            if (!os_strcmp(device, epid->valuestring))
+            {
+                cJSON_DeleteItemFromArray(endpoints, pos);
+
+                uint8_t seq = sll_seq();
+                cJSON *packet = cJSON_CreateObject();
+                cJSON *header = cJSON_CreateObject();
+                cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+                cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Room"));
+                cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_ADD_OR_UPDATE_REPORT));
+                cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+                cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+                cJSON_AddItemToObject(packet, "header", header);
+                cJSON_AddItemToObject(packet, "room", cJSON_Duplicate(room, 1));
+
+                char *str = cJSON_PrintUnformatted(packet);
+                sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
+                os_free(str);
+                cJSON_Delete(packet);
+
+                break;
+            }
+            pos--;
+        }
+        os_free(kv);
+        cJSON_Delete(room);
+    }
+    kv_list_iterator_release(it);
+}
+
 void slr_init(void)
 {
     sigma_event_listen(EVENT_TYPE_PACKET, handle_room, 0);
+    sigma_event_listen(EVENT_TYPE_DEVICE_DELETE, handle_device_delete, 0);
 }
 
 void slr_update(void)
