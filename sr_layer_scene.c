@@ -537,6 +537,7 @@ static int mission_scene_update(SigmaMission *mission, uint8_t cleanup)
             int ret = telink_mesh_group_delete(addr->valueint, 0x8000 + ctx->scene);
             if (ret > 0)
             {
+                cJSON_DeleteItemFromArray(ctx->old, 0);
                 ctx->state = STATE_TYPE_SCENE_UPDATE_INIT;
             }
             if (ret < 0)
