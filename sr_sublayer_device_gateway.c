@@ -525,7 +525,9 @@ static int mission_telink_mesh_add(SigmaMission *mission, uint8_t cleanup)
                 {\"type\":\"ColorTemperatureController\",\"version\":\"1\",\"properties\":[\"percentage\"],\"reportable\":true}\
             ]";
         cJSON *capabilities = cJSON_Parse(caps);
-        sld_create(id, name_device(category), name_category(category), connections, attributes, capabilities);
+        char name[64] = {0};
+        sprintf(name, "%s_%02x", name_device(category), ctx->devices->addr);
+        sld_create(id, name, name_category(category), connections, attributes, capabilities);
 
         cJSON *cap = capabilities->child;
         while (cap)
