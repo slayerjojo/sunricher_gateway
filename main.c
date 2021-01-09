@@ -5,6 +5,7 @@
 #include "sr_layer_scene.h"
 #include "sr_layer_room.h"
 #include "interface_os.h"
+#include "interface_kv.h"
 #include "driver_usart_linux.h"
 #include "driver_telink_mesh.h"
 #include "driver_telink_extends_sunricher.h"
@@ -16,11 +17,19 @@
 #include "hex.h"
 
 static char _serial[64] = {0};
+static char _kv[64] = "./kv/%s";
 static SigmaMission *_missions = 0;
 
 static int option_serial(char *option)
 {
     os_strcpy(_serial, option);
+    return 0;
+}
+
+static int option_kv(char *option)
+{
+    os_strcpy(_kv, option);
+    os_strcat(_kv, "/%s");
     return 0;
 }
 
@@ -316,8 +325,11 @@ int main(int argc, char *argv[])
     srand(time(0));
 
     register_command_option_argument("serial", option_serial, "serial port.syntax:</dev/tty.usbserial-xxxxx>");
+    register_command_option_argument("kv", option_kv, "path of kv db.");
     if (parse_command_option(argc, argv) < 0)
         return -1;
+
+    kv_init(_kv);
 
     sigma_console_init(8000, handle_console);
 

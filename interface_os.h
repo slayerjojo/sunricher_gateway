@@ -23,6 +23,7 @@ extern "C"
 #define os_strlen strlen
 #define os_strstr strstr
 #define os_strcpy strcpy
+#define os_strcat strcat
 #define os_strcmp strcmp
 #define os_ticks linux_ticks
 #define os_sleep usleep

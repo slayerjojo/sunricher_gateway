@@ -3,6 +3,7 @@
 
 #include "env.h"
 
+void linux_kv_init(const char *root);
 void linux_kv_delete(const char *key);
 int linux_kv_set(const char *key, const void *value, uint32_t size);
 uint32_t linux_kv_size(const char *key);

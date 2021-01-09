@@ -6,6 +6,11 @@
 
 const char *_root = "./kv/%s";
 
+void linux_kv_init(const char *root)
+{
+    _root = root;
+}
+
 void linux_kv_delete(const char *key)
 {
     char path[128] = {0};

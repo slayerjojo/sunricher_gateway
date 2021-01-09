@@ -1,3 +1,4 @@
 kv/
 obj/
-telink_gateway
+sunricher_gateway
+*.o

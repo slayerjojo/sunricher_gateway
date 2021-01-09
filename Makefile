@@ -1,5 +1,5 @@
-PROGRAM := telink_gateway
-OBJDIR	:= obj
+PROGRAM := sunricher_gateway
+OBJDIR	:= .
 SRCEXTS := .c
 CFLAGS += -g 
 CFLAGS += -DDEBUG 
@@ -10,7 +10,7 @@ LDFLAGS += -lm
 LDFLAGS += -lpthread
 LDFLAGS += -lpaho-mqtt3a
 RM = rm -rf
-CC = gcc
+#CC = gcc
 
 SOURCES = $(shell find ./ -maxdepth 1 -name "*$(SRCEXTS)")
 ifeq ($(shell uname), Linux)
@@ -32,7 +32,7 @@ $(PROGRAM) : $(OBJS)
 	$(CC) -o $(PROGRAM) $(OBJS) $(LDFLAGS)
 
 clean :
-	$(RM) $(OBJDIR)/* $(PROGRAM)
+	$(RM) $(OBJDIR)/*.o $(OBJDIR)/*.d $(PROGRAM)
 
 cleankv :
 	$(RM) kv/*

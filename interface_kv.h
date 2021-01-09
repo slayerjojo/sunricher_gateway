@@ -5,6 +5,7 @@
 
 #include "driver_kv_linux.h"
 
+#define kv_init linux_kv_init
 #define kv_delete linux_kv_delete
 #define kv_set linux_kv_set
 #define kv_size linux_kv_size
