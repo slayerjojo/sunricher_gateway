@@ -17,9 +17,15 @@ typedef struct
     char client[];
 }ContextDiscoverScenes;
 
-static int mission_discover_scenes(SigmaMission *mission)
+static int mission_discover_scenes(SigmaMission *mission, uint8_t cleanup)
 {
     ContextDiscoverScenes *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        kv_list_iterator_release(ctx->it);
+        return 1;
+    }
 
     if (os_ticks_from(ctx->timer) < os_ticks_ms(200))
         return 0;
@@ -83,9 +89,12 @@ typedef struct
     char id[];
 }ContextSceneUpdate;
 
-static int mission_scene_recall(SigmaMission *mission)
+static int mission_scene_recall(SigmaMission *mission, uint8_t cleanup)
 {
     uint8_t *scene = sigma_mission_extends(mission);
+
+    if (cleanup)
+        return 1;
 
     int ret = telink_mesh_scene_load(0x8000 + *scene, *scene);
     if (!ret)
@@ -95,9 +104,29 @@ static int mission_scene_recall(SigmaMission *mission)
     return 1;
 }
 
-static int mission_scene_update(SigmaMission *mission)
+static int mission_scene_update(SigmaMission *mission, uint8_t cleanup)
 {
     ContextSceneUpdate *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        if (ctx->scenes)
+            cJSON_Delete(ctx->scenes);
+        ctx->scenes = 0;
+
+        if (ctx->apply)
+            cJSON_Delete(ctx->apply);
+        ctx->apply = 0;
+
+        if (ctx->old)
+            cJSON_Delete(ctx->old);
+        ctx->old = 0;
+
+        if (ctx->final)
+            cJSON_Delete(ctx->final);
+        ctx->final = 0;
+        return 1;
+    }
 
     if (STATE_TYPE_SCENE_UPDATE_INIT == ctx->state)
     {
@@ -154,10 +183,15 @@ static int mission_scene_update(SigmaMission *mission)
             cJSON_AddItemToArray(ctx->final, old);
         }
         cJSON_Delete(ctx->apply);
+        ctx->apply = 0;
         cJSON_Delete(ctx->old);
+        ctx->old = 0;
 
         if (ctx->final->child)
             cJSON_AddItemToObject(ctx->scenes, "actions", ctx->final);
+        else
+            cJSON_Delete(ctx->final);
+        ctx->final = 0;
 
         kv_list_add("scenes", ctx->id);
 
@@ -182,6 +216,7 @@ static int mission_scene_update(SigmaMission *mission)
         cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
         cJSON_AddItemToObject(packet, "header", header);
         cJSON_AddItemToObject(packet, "scene", ctx->scenes);
+        ctx->scenes = 0;
 
         {
             char *str = cJSON_PrintUnformatted(packet);
@@ -451,7 +486,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while(0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     else if (STATE_TYPE_SCENE_UPDATE_KICKOUT_GROUP == ctx->state)
     {
@@ -502,6 +537,7 @@ static int mission_scene_update(SigmaMission *mission)
             int ret = telink_mesh_group_delete(addr->valueint, 0x8000 + ctx->scene);
             if (ret > 0)
             {
+                cJSON_DeleteItemFromArray(ctx->old, 0);
                 ctx->state = STATE_TYPE_SCENE_UPDATE_INIT;
             }
             if (ret < 0)
@@ -513,7 +549,7 @@ static int mission_scene_update(SigmaMission *mission)
             }
         }
         while(0);
-        os_free(ep);
+        cJSON_Delete(ep);
     }
     return 0;
 }
@@ -705,10 +741,7 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
             break;
         }
         if (mission)
-        {
-            kv_list_iterator_release(ctx->it);
             sigma_mission_release(mission);
-        }
         mission = sigma_mission_create(0, MISSION_TYPE_DISCOVER_SCENES, mission_discover_scenes, sizeof(ContextDiscoverScenes) + os_strlen(user->valuestring) + 1);
         if (!mission)
         {
@@ -839,9 +872,83 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
     }
 }
 
+static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
+{
+    const char *device = (const char *)msg;
+
+    void *it = 0;
+    const char *id = 0;
+    while ((id = kv_list_iterator("scenes", &it)))
+    {
+        char *kv = kv_acquire(id, 0);
+        if (!kv)
+        {
+            SigmaLogError(0, 0, "scene %s not found.", kv);
+            continue;
+        }
+        cJSON *scene = cJSON_Parse(kv);
+        if (!scene)
+        {
+            SigmaLogError(0, 0, "scene %s format error.data:%s", scene, kv);
+            os_free(kv);
+            continue;
+        }
+        cJSON *actions = cJSON_GetObjectItem(scene, "actions");
+        if (!actions)
+            continue;
+        int pos = cJSON_GetArraySize(actions) - 1;
+        while (pos >= 0)
+        {
+            cJSON *setting = cJSON_GetArrayItem(actions, pos);
+            if (!setting)
+                break;
+            cJSON *ep = cJSON_GetObjectItem(setting, "endpoint");
+            if (ep)
+            {
+                cJSON *epid = cJSON_GetObjectItem(ep, "endpointId");
+                if (epid)
+                {
+                    if (!os_strcmp(device, epid->valuestring))
+                    {
+                        cJSON_DeleteItemFromArray(actions, pos);
+
+                        uint8_t seq = sll_seq();
+                        cJSON *packet = cJSON_CreateObject();
+                        cJSON *header = cJSON_CreateObject();
+                        cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+                        cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Scene"));
+                        cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_ADD_OR_UPDATE_REPORT));
+                        cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+                        cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+                        cJSON_AddItemToObject(packet, "header", header);
+                        cJSON_AddItemToObject(packet, "scene", cJSON_Duplicate(scene, 1));
+
+                        char *str = cJSON_PrintUnformatted(packet);
+                        sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
+                        os_free(str);
+                        cJSON_Delete(packet);
+
+                        str = cJSON_PrintUnformatted(scene);
+                        if (kv_set(id, str, os_strlen(str)) < 0)
+                            SigmaLogError(0, 0, "save scene %s failed.", id);
+                        os_free(str);
+
+                        break;
+                    }
+                }
+            }
+            pos--;
+        }
+        os_free(kv);
+        cJSON_Delete(scene);
+    }
+    kv_list_iterator_release(it);
+}
+
 void sls_init(void)
 {
     sigma_event_listen(EVENT_TYPE_PACKET, handle_scene, 0);
+    sigma_event_listen(EVENT_TYPE_DEVICE_DELETE, handle_device_delete, 0);
 }
 
 void sls_update(void)

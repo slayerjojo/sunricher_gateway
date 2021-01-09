@@ -41,9 +41,12 @@ typedef struct
     uint8_t effect;
 }ContextTelinkMeshSet;
 
-static int mission_telink_mesh_set(SigmaMission *mission)
+static int mission_telink_mesh_set(SigmaMission *mission, uint8_t cleanup)
 {
     ContextTelinkMeshSet *ctx = (ContextTelinkMeshSet *)sigma_mission_extends(mission);
+
+    if (cleanup)
+        return 1;
 
     int ret = telink_mesh_set(ctx->name, ctx->password, ctx->ltk, ctx->effect);
     if (!ret)
@@ -63,8 +66,11 @@ static int mission_telink_mesh_set(SigmaMission *mission)
     return 0;
 }
 
-static int mission_telink_mesh_add_start(SigmaMission *mission)
+static int mission_telink_mesh_add_start(SigmaMission *mission, uint8_t cleanup)
 {
+    if (cleanup)
+        return 1;
+
     int ret = telink_mesh_device_add(0xff, 0xff);
     if (!ret)
         return 0;
@@ -83,8 +89,11 @@ static int mission_telink_mesh_add_start(SigmaMission *mission)
     return 0;
 }
 
-static int mission_telink_mesh_add_stop(SigmaMission *mission)
+static int mission_telink_mesh_add_stop(SigmaMission *mission, uint8_t cleanup)
 {
+    if (cleanup)
+        return 1;
+
     int ret = telink_mesh_device_add(0, 0);
     if (!ret)
         return 0;
@@ -103,8 +112,11 @@ static int mission_telink_mesh_add_stop(SigmaMission *mission)
     return 0;
 }
 
-static int mission_telink_mesh_discover(SigmaMission *mission)
+static int mission_telink_mesh_discover(SigmaMission *mission, uint8_t cleanup)
 {
+    if (cleanup)
+        return 1;
+
     int ret = telink_mesh_device_discover();
     if (!ret)
         return 0;
@@ -130,9 +142,12 @@ typedef struct
     uint16_t new;
 }ContextTelinkMeshDeviceAddr;
 
-static int mission_telink_mesh_device_addr(SigmaMission *mission)
+static int mission_telink_mesh_device_addr(SigmaMission *mission, uint8_t cleanup)
 {
     ContextTelinkMeshDeviceAddr *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+        return 1;
 
     int ret = telink_mesh_device_addr(ctx->addr, ctx->mac, ctx->new);
     if (!ret)
@@ -152,9 +167,12 @@ static int mission_telink_mesh_device_addr(SigmaMission *mission)
     return 0;
 }
 
-static int mission_telink_mesh_device_type(SigmaMission *mission)
+static int mission_telink_mesh_device_type(SigmaMission *mission, uint8_t cleanup)
 {
     uint16_t *addr = sigma_mission_extends(mission);
+
+    if (cleanup)
+        return 1;
 
     SRCategory category;
     int ret = tmes_device_type(*addr, &category, 0, 0);
@@ -175,8 +193,11 @@ static int mission_telink_mesh_device_type(SigmaMission *mission)
     return 0;
 }
 
-static int mission_telink_mesh_light_status(SigmaMission *mission)
+static int mission_telink_mesh_light_status(SigmaMission *mission, uint8_t cleanup)
 {
+    if (cleanup)
+        return 1;
+
     int ret = telink_mesh_light_status_request();
     if (!ret)
         return 0;

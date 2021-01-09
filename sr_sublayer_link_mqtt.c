@@ -107,32 +107,69 @@ typedef struct
 
 static void onSubscribe(void* context, MQTTAsync_successData* response)
 {
-    SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)context;
+    char *topic = (char *)context;
 
-    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s successed.", ctx->list + ctx->pos);
+    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s successed.", topic);
     
-    ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
-    ctx->state = 0;
+    SigmaMission *mission = 0;
+    SigmaMissionIterator it = {0};
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_MQTT_SUBSCRIBE == mission->type)
+        {
+            SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
+
+            ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
+            ctx->state = 0;
+            break;
+        }
+    }
+
+    os_free(topic);
 }
 
 static void onSubscribeFailure(void* context, MQTTAsync_failureData* response)
 {
-    SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)context;
+    char *topic = (char *)context;
 
-    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s failed.(code:%d)", ctx->list + ctx->pos, response->code);
+    SigmaLogAction(0, 0, "MQTTAsync_subscribe %s failed.(code:%d)", topic, response->code);
     
-    ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
-    ctx->state = 0;
+    SigmaMission *mission = 0;
+    SigmaMissionIterator it = {0};
+    while ((mission = sigma_mission_iterator(&it)))
+    {
+        if (MISSION_TYPE_MQTT_SUBSCRIBE == mission->type)
+        {
+            SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
+
+            ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
+            ctx->state = 0;
+            break;
+        }
+    }
+    
+    os_free(topic);
 }
 
-static int mission_mqtt_subscribe(SigmaMission *mission)
+static int mission_mqtt_subscribe(SigmaMission *mission, uint8_t cleanup)
 {
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        if (ctx->list)
+        {
+            os_free(ctx->list);
+            ctx->list = 0;
+        }
+        return 1;
+    }
 
     if (ctx->pos >= ctx->size)
     {
         sigma_event_dispatch(EVENT_TYPE_CLIENT_AUTH, (void *)_server, os_strlen(_server));
         os_free(ctx->list);
+        ctx->list = 0;
         return 1;
     }
     if (0 == ctx->state)
@@ -140,12 +177,18 @@ static int mission_mqtt_subscribe(SigmaMission *mission)
         MQTTAsync_responseOptions opts = MQTTAsync_responseOptions_initializer;
         opts.onSuccess = onSubscribe;
         opts.onFailure = onSubscribeFailure;
-        opts.context = ctx;
+        char *topic = opts.context = os_malloc(128);
+        if (!topic)
+        {
+            SigmaLogError(0, 0, "out of memory");
+            ctx->state = 0;
+            ctx->pos += os_strlen(ctx->list + ctx->pos) + 1;
+            return 0;
+        }
 
         ctx->state = 1;
         ctx->timer = os_ticks();
 
-        char topic[128] = {0};
         sprintf(topic, "gateway/%s/%s/directive", _client_id, ctx->list + ctx->pos);
 
         int ret = 0;
@@ -200,11 +243,11 @@ static void onConnect(void* context, MQTTAsync_successData* response)
         }
     }
     SigmaMissionMqttSubscribe *ctx = (SigmaMissionMqttSubscribe *)sigma_mission_extends(mission);
-    if (ctx->list)
-        os_free(ctx->list);
     ctx->state = 0;
     ctx->pos = 0;
     ctx->size = size;
+    if (ctx->list)
+        os_free(ctx->list);
     ctx->list = list;
 }
 

@@ -170,9 +170,15 @@ typedef struct
     char client[];
 }ContextDeviceSync;
 
-static int mission_device_sync(SigmaMission *mission)
+static int mission_device_sync(SigmaMission *mission, uint8_t cleanup)
 {
     ContextDeviceSync *ctx = sigma_mission_extends(mission);
+
+    if (cleanup)
+    {
+        kv_list_iterator_release(ctx->it);
+        return 1;
+    }
 
     if (os_ticks_from(ctx->timer) < os_ticks_ms(200))
         return 0;
@@ -205,10 +211,7 @@ static void handle_client_auth(void *context, uint8_t event, void *msg, int size
         break;
     }
     if (mission)
-    {
-        kv_list_iterator_release(ctx->it);
         sigma_mission_release(mission);
-    }
     mission = sigma_mission_create(0, MISSION_TYPE_DEVICE_SYNC, mission_device_sync, sizeof(ContextDeviceSync) + size + 1);
     if (!mission)
     {
@@ -465,8 +468,6 @@ void sld_property_set(const char *device, const char *type, const char *name, cJ
     cJSON_AddItemToObject(property, "value", value);
     sld_property_save(device, properties);
     cJSON_Delete(properties);
-
-    sld_property_report(device, OPCODE_DEVICE_CHANGE_REPORT);
 }
 
 cJSON *sld_property_get(const char *device, const char *type, const char *name)

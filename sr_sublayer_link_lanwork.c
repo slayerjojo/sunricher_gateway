@@ -372,7 +372,7 @@ void ssll_update(void)
     {
         if (os_ticks_from(session->timer) > os_ticks_ms(LANWORK_IDLE_INTERVAL))
         {
-            SigmaLogError(session->id, 16, "fp:%d heartbeat stoped, id:");
+            SigmaLogError(session->id, 16, "fp:%d heartbeat stoped, id:", session->fp);
             break;
         }
         if (session->packets)

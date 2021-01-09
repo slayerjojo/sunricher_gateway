@@ -38,9 +38,15 @@ void sigma_mission_update(void)
                 m = _missions;
             continue;
         }
-        int ret = m->handler(m);
-        if (ret)
-            m->release = 1;
+        if (m->handler)
+        {
+            int ret = m->handler(m, 0);
+            if (ret)
+            {
+                m->handler(m, 1);
+                m->release = 1;
+            }
+        }
         prev = m;
         m = m->next;
     }
@@ -76,6 +82,8 @@ SigmaMission *sigma_mission_create(SigmaMission *mission, uint8_t type, SigmaMis
 void sigma_mission_release(SigmaMission *mission)
 {
     mission->release = 1;
+    if (mission->handler)
+        mission->handler(mission, 1);
 }
 
 void *sigma_mission_extends(SigmaMission *mission)

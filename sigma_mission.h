@@ -31,7 +31,7 @@ enum
 
 struct _sigma_mission;
 
-typedef int (*SigmaMissionHandler)(struct _sigma_mission *mission);
+typedef int (*SigmaMissionHandler)(struct _sigma_mission *mission, uint8_t cleanup);
 
 typedef struct _sigma_mission
 {
