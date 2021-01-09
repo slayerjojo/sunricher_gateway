@@ -3791,6 +3791,13 @@ int telink_mesh_group_add(uint16_t dst, uint16_t group)
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
@@ -3993,6 +4000,13 @@ int telink_mesh_scene_add(uint8_t dst, uint8_t scene, uint8_t luminance, uint8_t
         if (os_ticks_from(_timer) > os_ticks_ms(1000))
         {
             SigmaLogError(0, 0, "timeout");
+            _request->retry++;
+            if (_request->retry < 10)
+            {
+                SigmaLogError(0, 0, "retry %d", _request->retry);
+                _request->state = STATE_TLM_REQUEST;
+                return 0;
+            }
             os_free(_request);
             _request = 0;
             return -1;
