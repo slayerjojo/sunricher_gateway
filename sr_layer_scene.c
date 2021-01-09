@@ -741,10 +741,7 @@ static void handle_scene(void *ctx, uint8_t event, void *msg, int size)
             break;
         }
         if (mission)
-        {
-            kv_list_iterator_release(ctx->it);
             sigma_mission_release(mission);
-        }
         mission = sigma_mission_create(0, MISSION_TYPE_DISCOVER_SCENES, mission_discover_scenes, sizeof(ContextDiscoverScenes) + os_strlen(user->valuestring) + 1);
         if (!mission)
         {
@@ -930,6 +927,11 @@ static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
                         sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
                         os_free(str);
                         cJSON_Delete(packet);
+
+                        str = cJSON_PrintUnformatted(scene);
+                        if (kv_set(id, str, os_strlen(str)) < 0)
+                            SigmaLogError(0, 0, "save scene %s failed.", id);
+                        os_free(str);
 
                         break;
                     }

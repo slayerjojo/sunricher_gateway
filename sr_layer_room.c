@@ -278,6 +278,11 @@ static void handle_device_delete(void *ctx, uint8_t event, void *msg, int size)
                 sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT | FLAG_LINK_PACKET_EVENT);
                 os_free(str);
                 cJSON_Delete(packet);
+                        
+                str = cJSON_PrintUnformatted(room);
+                if (kv_set(id, str, os_strlen(str)) < 0)
+                    SigmaLogError(0, 0, "save room %s failed.", id);
+                os_free(str);
 
                 break;
             }
