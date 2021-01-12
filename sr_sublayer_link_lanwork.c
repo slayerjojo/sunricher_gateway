@@ -47,6 +47,7 @@ static uint32_t _timer_bind = 0;
 static int _listener = -1;
 static LinkSessionLanwork *_sessions = 0;
 static LinkSessionLanwork _bcast = {0};
+static uint8_t _ip_bcast[4] = {0};
 
 static void handle_client_auth(void *ctx, uint8_t event, void *msg, int size)
 {
@@ -202,8 +203,10 @@ void ssll_init(void)
 void ssll_update(void)
 {
     int ret = 0;
-    uint8_t ip[4] = {192, 168, 123, 255};
+    uint8_t ip[4] = {0};
     uint16_t port;
+
+    os_memcpy(ip, _ip_bcast, 4);
 
     if (_bcast.fp < 0)
         _bcast.fp = network_udp_create(LANWORK_UDP_PORT_LISTEN);
@@ -527,6 +530,11 @@ void ssll_update(void)
             _sessions = session->_next;
         os_free(session);
     }
+}
+
+void ssll_bcast_addr(uint8_t *ip)
+{
+    os_memcpy(_ip_bcast, ip, 4);
 }
 
 void ssll_bind(void)

@@ -1,6 +1,7 @@
 #include "env.h"
 #include "sr_layer_link.h"
 #include "sr_sublayer_link_mqtt.h"
+#include "sr_sublayer_link_lanwork.h"
 #include "sr_layer_device.h"
 #include "sr_layer_scene.h"
 #include "sr_layer_room.h"
@@ -15,10 +16,18 @@
 #include "command_option.h"
 #include "sigma_log.h"
 #include "hex.h"
+#include <signal.h>
 
 static char _serial[64] = {0};
 static char _kv[64] = "./kv/%s";
 static SigmaMission *_missions = 0;
+static uint8_t _bcast[4] = {0};
+
+static void sigroutine(int dunno)
+{
+    if (SIGUSR1 == dunno)
+        sigma_event_dispatch(EVENT_TYPE_GATEWAY_BIND, 0, 0);
+}
 
 static int option_serial(char *option)
 {
@@ -30,6 +39,48 @@ static int option_kv(char *option)
 {
     os_strcpy(_kv, option);
     os_strcat(_kv, "/%s");
+    return 0;
+}
+
+static int option_bcast(char *option)
+{
+    char *ip = option;
+    char *end = option;
+    end = os_strstr(ip, ".");
+    if (!end)
+    {
+        SigmaLogError(0, 0, "bcast addr error");
+        return -1;
+    }
+    *end = 0;
+    _bcast[0] = atoi(ip);
+    ip = end + 1;
+    *end = '.';
+
+    end = os_strstr(ip, ".");
+    if (!end)
+    {
+        SigmaLogError(0, 0, "bcast addr error");
+        return -1;
+    }
+    *end = 0;
+    _bcast[1] = atoi(ip);
+    ip = end + 1;
+    *end = '.';
+
+    end = os_strstr(ip, ".");
+    if (!end)
+    {
+        SigmaLogError(0, 0, "bcast addr error");
+        return -1;
+    }
+    *end = 0;
+    _bcast[2] = atoi(ip);
+    ip = end + 1;
+    *end = '.';
+
+    _bcast[3] = atoi(ip);
+
     return 0;
 }
 
@@ -345,8 +396,11 @@ int main(int argc, char *argv[])
 {
     srand(time(0));
 
+	signal(SIGUSR1, sigroutine);
+
     register_command_option_argument("serial", option_serial, "serial port.syntax:</dev/tty.usbserial-xxxxx>");
     register_command_option_argument("kv", option_kv, "path of kv db.");
+    register_command_option_argument("bcast", option_bcast, "bcast addr");
     if (parse_command_option(argc, argv) < 0)
         return -1;
 
@@ -356,6 +410,7 @@ int main(int argc, char *argv[])
 
     sigma_mission_init();
 
+    ssll_bcast_addr(_bcast);
     sll_init();
     sld_init();
     slr_init();

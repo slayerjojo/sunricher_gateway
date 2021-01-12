@@ -13,6 +13,8 @@ typedef struct
 void ssll_init(void);
 void ssll_update(void);
 
+void ssll_bcast_addr(uint8_t *ip);
+
 void ssll_bind(void);
 
 void ssll_auth(int fp, const char *id, uint8_t *key);
