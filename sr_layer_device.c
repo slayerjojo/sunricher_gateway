@@ -104,6 +104,24 @@ static void handle_device_discover(void *ctx, uint8_t event, void *msg, int size
                 cJSON *user = cJSON_GetObjectItem(packet, "user");
                 if (user && os_strcmp(user->valuestring, "server"))
                 {
+                    uint8_t seq = sll_seq();
+                    cJSON *packet = cJSON_CreateObject();
+                    cJSON *header = cJSON_CreateObject();
+                    cJSON_AddItemToObject(header, "method", cJSON_CreateString("Event"));
+                    cJSON_AddItemToObject(header, "namespace", cJSON_CreateString("Discovery"));
+                    cJSON_AddItemToObject(header, "name", cJSON_CreateString(OPCODE_DELETE_REPORT));
+                    cJSON_AddItemToObject(header, "version", cJSON_CreateString(PROTOCOL_VERSION));
+                    cJSON_AddItemToObject(header, "messageIndex", cJSON_CreateNumber(seq));
+                    cJSON_AddItemToObject(packet, "header", header);
+                    cJSON *ep = cJSON_CreateObject();
+                    cJSON_AddItemToObject(ep, "endpointId", cJSON_CreateString(gateway));
+                    cJSON_AddItemToObject(packet, "endpoint", ep);
+
+                    char *str = cJSON_PrintUnformatted(packet);
+                    sll_report(seq, str, os_strlen(str), FLAG_LINK_SEND_LANWORK | FLAG_LINK_SEND_MQTT);
+                    os_free(str);
+                    cJSON_Delete(packet);
+
                     sll_client_remove(user->valuestring);
                 }
             }
